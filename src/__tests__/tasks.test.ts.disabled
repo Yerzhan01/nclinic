@@ -1,0 +1,210 @@
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { PrismaClient, TaskStatus, TaskType, TaskPriority, AlertType, AlertLevel, ChatMode } from '@prisma/client';
+import { TaskService } from '@/modules/tasks/task.service.js';
+import { AppError } from '@/common/errors/AppError.js';
+
+const prisma = new PrismaClient();
+const taskService = new TaskService();
+
+describe('Tasks Module', () => {
+    let testPatientId: string;
+    let testClinicId: string;
+    let testUserId: string;
+    let testAlertId: string;
+    const testPhone = '+7779' + Date.now();
+
+    beforeAll(async () => {
+        await prisma.$connect();
+
+        // Create test clinic
+        const clinic = await prisma.clinic.create({
+            data: { name: 'Test Clinic Tasks', isActive: true },
+        });
+        testClinicId = clinic.id;
+
+        // Create test patient
+        const patient = await prisma.patient.create({
+            data: {
+                fullName: 'Test Patient Tasks',
+                phone: testPhone,
+                chatMode: ChatMode.AI,
+                clinicId: testClinicId,
+            },
+        });
+        testPatientId = patient.id;
+
+        // Create test user
+        const user = await prisma.user.create({
+            data: {
+                email: `test-tasks-${Date.now()}@test.com`,
+                passwordHash: 'hash',
+                fullName: 'Test User Tasks',
+                role: 'STAFF',
+            },
+        });
+        testUserId = user.id;
+
+        // Create test alert
+        const alert = await prisma.alert.create({
+            data: {
+                patientId: testPatientId,
+                type: AlertType.BAD_CONDITION,
+                level: AlertLevel.HIGH,
+                title: 'Test Alert',
+                description: 'Test alert description',
+                source: 'ai',
+            },
+        });
+        testAlertId = alert.id;
+    });
+
+    afterAll(async () => {
+        // Clean up test data
+        await prisma.task.deleteMany({ where: { patientId: testPatientId } });
+        await prisma.alert.deleteMany({ where: { patientId: testPatientId } });
+        await prisma.patient.delete({ where: { id: testPatientId } });
+        await prisma.clinic.delete({ where: { id: testClinicId } });
+        await prisma.user.delete({ where: { id: testUserId } });
+        await prisma.$disconnect();
+    });
+
+    beforeEach(async () => {
+        // Clean up tasks before each test
+        await prisma.task.deleteMany({ where: { patientId: testPatientId } });
+    });
+
+    describe('createFromAlert', () => {
+        it('should create task from alert with correct mapping', async () => {
+            const task = await taskService.createFromAlert({
+                id: testAlertId,
+                patientId: testPatientId,
+                type: AlertType.BAD_CONDITION,
+                level: AlertLevel.CRITICAL,
+                title: 'Critical condition',
+                description: 'Patient needs attention',
+            });
+
+            expect(task.status).toBe(TaskStatus.OPEN);
+            expect(task.type).toBe(TaskType.CALL_PATIENT); // BAD_CONDITION -> CALL_PATIENT
+            expect(task.priority).toBe(TaskPriority.URGENT); // CRITICAL -> URGENT
+            expect(task.alertId).toBe(testAlertId);
+            expect(task.title).toContain('Critical condition');
+        });
+
+        it('should set priority URGENT for CRITICAL level', async () => {
+            const task = await taskService.createFromAlert({
+                id: testAlertId,
+                patientId: testPatientId,
+                type: AlertType.OTHER,
+                level: AlertLevel.CRITICAL,
+                title: 'Critical task',
+            });
+
+            expect(task.priority).toBe(TaskPriority.URGENT);
+        });
+
+        it('should set priority HIGH for HIGH level', async () => {
+            const task = await taskService.createFromAlert({
+                id: testAlertId,
+                patientId: testPatientId,
+                type: AlertType.MISSED_CHECKIN,
+                level: AlertLevel.HIGH,
+                title: 'High priority task',
+            });
+
+            expect(task.priority).toBe(TaskPriority.HIGH);
+            expect(task.type).toBe(TaskType.REVIEW_ALERT); // MISSED_CHECKIN -> REVIEW_ALERT
+        });
+    });
+
+    describe('listMyTasks', () => {
+        it('should return only tasks assigned to user', async () => {
+            // Create task assigned to test user
+            await taskService.create({
+                patientId: testPatientId,
+                type: TaskType.CALL_PATIENT,
+                title: 'My task',
+                assignedToId: testUserId,
+            });
+
+            // Create task assigned to someone else
+            await taskService.create({
+                patientId: testPatientId,
+                type: TaskType.CUSTOM,
+                title: 'Other task',
+                assignedToId: 'other-user-id',
+            });
+
+            const myTasks = await taskService.listMyTasks(testUserId);
+
+            expect(myTasks.length).toBe(1);
+            expect(myTasks[0].title).toBe('My task');
+            expect(myTasks[0].assignedToId).toBe(testUserId);
+        });
+    });
+
+    describe('start', () => {
+        it('should change status to IN_PROGRESS and set startedAt', async () => {
+            const task = await taskService.create({
+                patientId: testPatientId,
+                type: TaskType.CALL_PATIENT,
+                title: 'Task to start',
+                assignedToId: testUserId,
+            });
+
+            const started = await taskService.start(task.id, testUserId);
+
+            expect(started.status).toBe(TaskStatus.IN_PROGRESS);
+            expect(started.startedAt).not.toBeNull();
+        });
+    });
+
+    describe('complete', () => {
+        it('should change status to DONE and set completedAt', async () => {
+            const task = await taskService.create({
+                patientId: testPatientId,
+                type: TaskType.CALL_PATIENT,
+                title: 'Task to complete',
+                assignedToId: testUserId,
+            });
+
+            // Start first
+            await taskService.start(task.id, testUserId);
+
+            // Then complete
+            const completed = await taskService.complete(task.id, testUserId);
+
+            expect(completed.status).toBe(TaskStatus.DONE);
+            expect(completed.completedAt).not.toBeNull();
+        });
+    });
+
+    describe('authorization', () => {
+        it('should forbid starting task assigned to another user', async () => {
+            const task = await taskService.create({
+                patientId: testPatientId,
+                type: TaskType.CALL_PATIENT,
+                title: 'Protected task',
+                assignedToId: 'other-user-id',
+            });
+
+            await expect(taskService.start(task.id, testUserId)).rejects.toThrow(AppError);
+        });
+
+        it('should forbid completing task assigned to another user', async () => {
+            // Create and assign to other user
+            const task = await prisma.task.create({
+                data: {
+                    patientId: testPatientId,
+                    type: TaskType.CALL_PATIENT,
+                    status: TaskStatus.IN_PROGRESS,
+                    priority: TaskPriority.NORMAL,
+                    title: 'Other user task',
+                    assignedToId: 'other-user-id',
+                },
+            });
+
+            await expect(taskService.complete(task.id, testUserId)).rejects.toThrow(AppError);
+        });
+    });
+});

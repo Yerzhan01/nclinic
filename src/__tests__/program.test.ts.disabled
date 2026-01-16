@@ -1,0 +1,210 @@
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { PrismaClient, Slot, CheckInStatus } from '@prisma/client';
+import { ProgramService } from '@/modules/programs/program.service.js';
+
+const prisma = new PrismaClient();
+const programService = new ProgramService();
+
+describe('ProgramService', () => {
+    let testPatientId: string;
+    let testTemplateId: string;
+    let testClinicId: string;
+
+    beforeAll(async () => {
+        await prisma.$connect();
+
+        // Create test clinic
+        const clinic = await prisma.clinic.create({
+            data: {
+                name: 'Test Clinic for Program',
+                isActive: true,
+            },
+        });
+        testClinicId = clinic.id;
+
+        // Create test patient
+        const patient = await prisma.patient.create({
+            data: {
+                fullName: 'Test Patient',
+                phone: '+7777' + Date.now(),
+                clinicId: testClinicId,
+            },
+        });
+        testPatientId = patient.id;
+
+        // Create test program template (7 days, 3 slots)
+        const template = await prisma.programTemplate.create({
+            data: {
+                name: 'Test Program 7 Days',
+                durationDays: 7,
+                slotsPerDay: [Slot.MORNING, Slot.AFTERNOON, Slot.EVENING],
+                rules: { allowedMisses: 1 },
+                isActive: true,
+            },
+        });
+        testTemplateId = template.id;
+    });
+
+    afterAll(async () => {
+        // Clean up test data
+        await prisma.checkIn.deleteMany({
+            where: {
+                programInstance: {
+                    patientId: testPatientId,
+                },
+            },
+        });
+        await prisma.programInstance.deleteMany({
+            where: { patientId: testPatientId },
+        });
+        await prisma.patient.delete({ where: { id: testPatientId } });
+        await prisma.programTemplate.delete({ where: { id: testTemplateId } });
+        await prisma.clinic.delete({ where: { id: testClinicId } });
+        await prisma.$disconnect();
+    });
+
+    beforeEach(async () => {
+        // Clean up program instances before each test
+        await prisma.checkIn.deleteMany({
+            where: {
+                programInstance: {
+                    patientId: testPatientId,
+                },
+            },
+        });
+        await prisma.programInstance.deleteMany({
+            where: { patientId: testPatientId },
+        });
+    });
+
+    describe('createProgramInstance', () => {
+        it('should create a program instance and generate check-ins', async () => {
+            const result = await programService.createProgramInstance({
+                patientId: testPatientId,
+                templateId: testTemplateId,
+            });
+
+            expect(result.programInstanceId).toBeDefined();
+            expect(result.startDate).toBeDefined();
+            expect(result.endDate).toBeDefined();
+
+            // Check that correct number of check-ins was created
+            // 7 days × 3 slots = 21 check-ins
+            expect(result.checkInsCreated).toBe(21);
+
+            // Verify in database
+            const checkIns = await prisma.checkIn.findMany({
+                where: { programInstanceId: result.programInstanceId },
+            });
+            expect(checkIns.length).toBe(21);
+        });
+
+        it('should reject if patient already has active program', async () => {
+            // Create first program
+            await programService.createProgramInstance({
+                patientId: testPatientId,
+                templateId: testTemplateId,
+            });
+
+            // Try to create second program - should fail
+            await expect(
+                programService.createProgramInstance({
+                    patientId: testPatientId,
+                    templateId: testTemplateId,
+                })
+            ).rejects.toThrow('Patient already has an active program');
+        });
+    });
+
+    describe('getActiveCheckIns', () => {
+        it('should return only current day pending check-ins', async () => {
+            await programService.createProgramInstance({
+                patientId: testPatientId,
+                templateId: testTemplateId,
+            });
+
+            const activeResult = await programService.getActiveCheckIns(testPatientId);
+
+            expect(activeResult).not.toBeNull();
+            expect(activeResult!.currentDay).toBe(1);
+            expect(activeResult!.checkIns.length).toBe(3); // 3 slots for day 1
+
+            // All check-ins should be for day 1
+            for (const checkIn of activeResult!.checkIns) {
+                expect(checkIn.dayNumber).toBe(1);
+                expect(checkIn.status).toBe(CheckInStatus.PENDING);
+            }
+        });
+
+        it('should return null if no active program', async () => {
+            const result = await programService.getActiveCheckIns(testPatientId);
+            expect(result).toBeNull();
+        });
+    });
+
+    describe('calculateCurrentDay', () => {
+        it('should return 1 for program started today', async () => {
+            const result = await programService.createProgramInstance({
+                patientId: testPatientId,
+                templateId: testTemplateId,
+            });
+
+            const instance = await prisma.programInstance.findUnique({
+                where: { id: result.programInstanceId },
+            });
+
+            const currentDay = programService.calculateCurrentDay(instance!);
+            expect(currentDay).toBe(1);
+        });
+
+        it('should return correct day for program started in past', async () => {
+            // Create program that started 3 days ago
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 3);
+            startDate.setHours(0, 0, 0, 0);
+
+            const result = await programService.createProgramInstance({
+                patientId: testPatientId,
+                templateId: testTemplateId,
+                startDate,
+            });
+
+            const instance = await prisma.programInstance.findUnique({
+                where: { id: result.programInstanceId },
+            });
+
+            const currentDay = programService.calculateCurrentDay(instance!);
+            expect(currentDay).toBe(4); // 3 days ago + today = day 4
+        });
+    });
+
+    describe('markMissedCheckIns', () => {
+        it('should mark past pending check-ins as missed', async () => {
+            // Create program that started 2 days ago
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() - 2);
+            startDate.setHours(0, 0, 0, 0);
+
+            const result = await programService.createProgramInstance({
+                patientId: testPatientId,
+                templateId: testTemplateId,
+                startDate,
+            });
+
+            // Mark missed check-ins
+            const missedCount = await programService.markMissedCheckIns();
+
+            // Days 1 and 2 should be marked as missed (2 days × 3 slots = 6 check-ins)
+            expect(missedCount).toBe(6);
+
+            // Verify in database
+            const missedCheckIns = await prisma.checkIn.findMany({
+                where: {
+                    programInstanceId: result.programInstanceId,
+                    status: CheckInStatus.MISSED,
+                },
+            });
+            expect(missedCheckIns.length).toBe(6);
+        });
+    });
+});

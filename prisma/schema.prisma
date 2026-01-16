@@ -1,0 +1,507 @@
+// Prisma schema for Patient Assistant System
+// https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+// User roles for access control
+enum UserRole {
+  ADMIN
+  STAFF
+}
+
+// Chat mode for patient conversations
+enum ChatMode {
+  AI
+  HUMAN
+  PAUSED
+}
+
+// Time slots for check-ins
+enum Slot {
+  MORNING
+  AFTERNOON
+  EVENING
+}
+
+// Check-in status
+enum CheckInStatus {
+  PENDING
+  RECEIVED
+  MISSED
+  ESCALATED
+}
+
+// Message direction
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+// Message sender type
+enum MessageSender {
+  PATIENT
+  AI
+  STAFF
+  SYSTEM
+}
+
+// Alert severity level (also used as RiskLevel)
+enum AlertLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// Alert status
+enum AlertStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+// Alert type
+enum AlertType {
+  BAD_CONDITION
+  REQUEST_MANAGER
+  MISSED_CHECKIN
+  OTHER
+}
+
+// Task status
+enum TaskStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+}
+
+// Task type
+enum TaskType {
+  RISK_ALERT
+  MISSED_CHECKIN
+  FOLLOW_UP
+  VISIT_FOLLOWUP
+  CUSTOM
+}
+
+// Task priority
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+// Task source
+enum TaskSource {
+  AI
+  SYSTEM
+  OPERATOR
+}
+
+// Message delivery status (WhatsApp)
+enum DeliveryStatus {
+  PENDING   // Not yet sent to WhatsApp API
+  SENT      // Sent to WhatsApp servers
+  DELIVERED // Delivered to recipient's phone
+  READ      // Read by recipient
+  FAILED    // Failed to send after retries
+}
+
+// AI quality error types
+enum AIErrorType {
+  REPEAT_QUESTION   // Patient repeats same question
+  COMPLAINT         // Patient complains about AI
+  CONFUSION         // Patient says "не понял", "что?"
+  HANDOFF_REQUEST   // Patient asks for human after AI reply
+}
+
+// ============================================================================
+// SYSTEM MODELS
+// ============================================================================
+
+// System users (clinic staff, admins)
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         UserRole @default(STAFF)
+  fullName     String   @map("full_name")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+// Integration settings (whatsapp, amocrm, ai)
+model IntegrationSettings {
+  id        String   @id @default(cuid())
+  type      String   @unique // whatsapp | amocrm | ai
+  isEnabled Boolean  @default(false) @map("is_enabled")
+  config    Json
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("integration_settings")
+}
+
+// ============================================================================
+// CLINIC & PATIENT MODELS
+// ============================================================================
+
+// Clinic organization
+model Clinic {
+  id        String   @id @default(cuid())
+  name      String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  patients Patient[]
+
+  @@map("clinics")
+}
+
+// Patient (weight-loss participant)
+model Patient {
+  id        String   @id @default(cuid())
+  fullName  String   @map("full_name")
+  phone     String   @unique
+  chatMode  ChatMode @default(AI) @map("chat_mode")
+  timezone  String   @default("Asia/Almaty")
+
+  // Chat mode tracking for handoff
+  chatModeSetAt DateTime? @map("chat_mode_set_at")
+  chatModeSetBy String?   @map("chat_mode_set_by")
+
+  // Weight-loss parameters (JSON, structure TBD)
+  profile   Json?
+
+  clinicId  String?  @map("clinic_id")
+  clinic    Clinic?  @relation(fields: [clinicId], references: [id])
+
+  amoLeadId String?  @map("amo_lead_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  programs  ProgramInstance[]
+  messages  Message[]
+  alerts    Alert[]
+  tasks     Task[]
+  checkIns  CheckIn[]
+
+  // AI pause control (operator toggle)
+  aiPaused      Boolean   @default(false) @map("ai_paused")
+  aiPausedAt    DateTime? @map("ai_paused_at")
+  aiPausedBy    String?   @map("ai_paused_by")
+  aiPauseReason String?   @map("ai_pause_reason")
+
+  // AI conversation summary (compressed history)
+  conversationSummary       String?   @map("conversation_summary")
+  conversationSummaryAt     DateTime? @map("conversation_summary_at")
+  messageCountSinceSummary  Int       @default(0) @map("message_count_since_summary")
+
+  // Relations
+  aiQualityLogs AIQualityLog[]
+
+  @@map("patients")
+}
+
+// ============================================================================
+// PROGRAM MODELS
+// ============================================================================
+
+// Program template (reusable program definition)
+model ProgramTemplate {
+  id           String   @id @default(cuid())
+  name         String
+  durationDays Int      @map("duration_days")
+  slotsPerDay  Slot[]   @map("slots_per_day")
+  rules        Json?    // Allowed misses, triggers, etc.
+  isActive     Boolean  @default(true) @map("is_active")
+
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  instances    ProgramInstance[]
+
+  @@map("program_templates")
+}
+
+// Program instance (patient enrolled in a program)
+model ProgramInstance {
+  id         String   @id @default(cuid())
+  patientId  String   @map("patient_id")
+  templateId String   @map("template_id")
+  startDate  DateTime @map("start_date")
+  endDate    DateTime @map("end_date")
+  currentDay Int      @default(1) @map("current_day")
+  status     String   // ACTIVE | PAUSED | COMPLETED (enum later)
+
+  patient    Patient         @relation(fields: [patientId], references: [id])
+  template   ProgramTemplate @relation(fields: [templateId], references: [id])
+
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([patientId])
+  @@map("program_instances")
+}
+
+// Check-ins (normalized data points)
+model CheckIn {
+  id          String   @id @default(cuid())
+  patientId   String   @map("patient_id")
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  type        CheckInType
+  valueNumber Float?   @map("value_number")
+  valueText   String?  @map("value_text")
+  valueBool   Boolean? @map("value_bool")
+
+  media       Json?    // photo / audio / metadata
+  source      CheckInSource @default(PATIENT)
+
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([patientId, type, createdAt])
+  @@map("check_ins")
+}
+
+enum CheckInType {
+  WEIGHT
+  MOOD
+  DIET_ADHERENCE
+  STEPS
+  SLEEP
+  FREE_TEXT
+  VISIT
+}
+
+enum CheckInSource {
+  PATIENT
+  STAFF
+  AI
+}
+
+// ============================================================================
+// MESSAGING MODELS
+// ============================================================================
+
+// Message (chat message between patient and system)
+model Message {
+  id        String           @id @default(cuid())
+  patientId String           @map("patient_id")
+  direction MessageDirection
+  sender    MessageSender
+
+  content   String?
+  mediaUrl  String?          @map("media_url")
+  mediaType String?          @map("media_type")
+
+  linkedCheckInId String?    @map("linked_check_in_id")
+  aiRisk    AlertLevel?      @map("ai_risk")
+
+  // WhatsApp tracking
+  whatsappMessageId String?        @map("whatsapp_message_id")
+  deliveryStatus    DeliveryStatus @default(PENDING) @map("delivery_status")
+
+  // A/B testing - which prompt variant generated this response
+  promptVariantId   String?        @map("prompt_variant_id")
+
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  // Alerts linked to this message
+  alerts    Alert[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([patientId])
+  @@index([whatsappMessageId])
+  @@map("messages")
+}
+
+// ============================================================================
+// ALERT & TASK MODELS
+// ============================================================================
+
+// Alert (escalation/warning for staff)
+model Alert {
+  id          String      @id @default(cuid())
+  patientId   String      @map("patient_id")
+  patient     Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  type        AlertType   @default(OTHER)
+  level       AlertLevel
+  status      AlertStatus @default(OPEN)
+
+  title       String
+  description String?
+  source      String      @default("system") // 'ai' | 'system' | userId
+
+  messageId   String?     @map("message_id")
+  message     Message?    @relation(fields: [messageId], references: [id])
+
+  resolvedAt  DateTime?   @map("resolved_at")
+  resolvedBy  String?     @map("resolved_by")
+
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  tasks       Task[]
+
+  @@index([patientId, status])
+  @@index([createdAt])
+  @@map("alerts")
+}
+
+// Task (follow-up task for staff)
+model Task {
+  id           String       @id @default(cuid())
+  patientId    String       @map("patient_id")
+  alertId      String?      @map("alert_id")
+
+  type         TaskType
+  status       TaskStatus   @default(OPEN)
+  priority     TaskPriority @default(MEDIUM)
+
+  title        String
+  description  String?
+  source       TaskSource
+  meta         Json?
+
+  assignedToId String?      @map("assigned_to_id")
+
+  dueAt        DateTime?    @map("due_at")
+  startedAt    DateTime?    @map("started_at")
+  completedAt  DateTime?    @map("completed_at")
+  resolvedAt   DateTime?    @map("resolved_at")
+
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  alert        Alert?       @relation(fields: [alertId], references: [id])
+
+  @@index([status, priority])
+  @@index([patientId])
+  @@index([assignedToId])
+  @@map("tasks")
+}
+
+// ============================================================================
+// RAG MODELS (Knowledge Base)
+// ============================================================================
+
+// RAG Source (collection of documents)
+model RagSource {
+  id        String   @id @default(cuid())
+  name      String
+  enabled   Boolean  @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  documents RagDocument[]
+
+  @@map("rag_sources")
+}
+
+// RAG Document (text content for search)
+model RagDocument {
+  id        String   @id @default(cuid())
+  sourceId  String   @map("source_id")
+  title     String
+  content   String   @db.Text
+  enabled   Boolean  @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  source    RagSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId])
+  @@map("rag_documents")
+}
+
+// ============================================================================
+// LOGGING MODELS
+// ============================================================================
+
+// System Log for admin visibility
+model SystemLog {
+  id        String   @id @default(cuid())
+  level     String   // INFO, WARN, ERROR
+  category  String   // SCHEDULER, AI, SYSTEM, MESSAGE
+  message   String
+  meta      Json?    // Any additional data
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([level])
+  @@index([category])
+  @@map("system_logs")
+}
+
+// ============================================================================
+// AI QUALITY & A/B TESTING MODELS
+// ============================================================================
+
+// AI Quality Log - tracks AI response errors
+model AIQualityLog {
+  id              String      @id @default(cuid())
+  patientId       String      @map("patient_id")
+  patient         Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  errorType       AIErrorType
+  aiMessageId     String      @map("ai_message_id")
+  patientReplyId  String      @map("patient_reply_id")
+  aiContent       String      @map("ai_content")
+  patientReply    String      @map("patient_reply")
+  
+  promptVariantId String?     @map("prompt_variant_id")
+  
+  createdAt       DateTime    @default(now()) @map("created_at")
+  
+  @@index([patientId])
+  @@index([createdAt])
+  @@index([errorType])
+  @@map("ai_quality_logs")
+}
+
+// Prompt Variant for A/B testing
+model PromptVariant {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  
+  systemPrompt    String  @map("system_prompt") @db.Text
+  styleGuide      String? @map("style_guide") @db.Text
+  
+  weight      Int      @default(50)  // % traffic (0-100)
+  isActive    Boolean  @default(true) @map("is_active")
+  
+  // Metrics (updated by service)
+  totalMessages   Int   @default(0) @map("total_messages")
+  errorCount      Int   @default(0) @map("error_count")
+  handoffCount    Int   @default(0) @map("handoff_count")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  @@map("prompt_variants")
+}

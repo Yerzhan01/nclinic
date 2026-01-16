@@ -1,0 +1,248 @@
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { PrismaClient, Slot, CheckInStatus, MessageDirection, MessageSender } from '@prisma/client';
+import { MessageService } from '@/modules/messages/message.service.js';
+import { WhatsAppService } from '@/integrations/whatsapp/whatsapp.service.js';
+import { ProgramService } from '@/modules/programs/program.service.js';
+
+const prisma = new PrismaClient();
+const messageService = new MessageService();
+const programService = new ProgramService();
+
+// Mock WhatsApp service
+vi.mock('@/integrations/whatsapp/whatsapp.service.js', async () => {
+    const actual = await vi.importActual('@/integrations/whatsapp/whatsapp.service.js');
+    return {
+        ...actual,
+        whatsAppService: {
+            sendMessage: vi.fn().mockResolvedValue({ whatsappMessageId: 'mock-wa-id', success: true }),
+            getConfig: vi.fn().mockResolvedValue(null),
+            parseIncomingWebhook: (actual as { WhatsAppService: typeof WhatsAppService }).WhatsAppService.prototype.parseIncomingWebhook,
+        },
+    };
+});
+
+describe('WhatsApp Message Pipeline', () => {
+    let testPatientId: string;
+    let testTemplateId: string;
+    let testClinicId: string;
+    const testPhone = '+7777' + Date.now();
+
+    beforeAll(async () => {
+        await prisma.$connect();
+
+        // Create test clinic
+        const clinic = await prisma.clinic.create({
+            data: { name: 'Test Clinic Messages', isActive: true },
+        });
+        testClinicId = clinic.id;
+
+        // Create test patient
+        const patient = await prisma.patient.create({
+            data: {
+                fullName: 'Test Patient Messages',
+                phone: testPhone,
+                clinicId: testClinicId,
+            },
+        });
+        testPatientId = patient.id;
+
+        // Create test program template (7 days, 3 slots)
+        const template = await prisma.programTemplate.create({
+            data: {
+                name: 'Test Program Messages',
+                durationDays: 7,
+                slotsPerDay: [Slot.MORNING, Slot.AFTERNOON, Slot.EVENING],
+                rules: { allowedMisses: 1 },
+                isActive: true,
+            },
+        });
+        testTemplateId = template.id;
+    });
+
+    afterAll(async () => {
+        // Clean up test data
+        await prisma.message.deleteMany({ where: { patientId: testPatientId } });
+        await prisma.checkIn.deleteMany({
+            where: { programInstance: { patientId: testPatientId } },
+        });
+        await prisma.programInstance.deleteMany({ where: { patientId: testPatientId } });
+        await prisma.patient.delete({ where: { id: testPatientId } });
+        await prisma.programTemplate.delete({ where: { id: testTemplateId } });
+        await prisma.clinic.delete({ where: { id: testClinicId } });
+        await prisma.$disconnect();
+    });
+
+    beforeEach(async () => {
+        // Clean up messages and program instances before each test
+        await prisma.message.deleteMany({ where: { patientId: testPatientId } });
+        await prisma.checkIn.deleteMany({
+            where: { programInstance: { patientId: testPatientId } },
+        });
+        await prisma.programInstance.deleteMany({ where: { patientId: testPatientId } });
+    });
+
+    describe('saveInboundMessage', () => {
+        it('should create a message for inbound webhook', async () => {
+            const result = await messageService.saveInboundMessage({
+                phone: testPhone,
+                text: 'Hello from patient',
+                whatsappMessageId: 'wa-123',
+                timestamp: Math.floor(Date.now() / 1000),
+            });
+
+            expect(result).not.toBeNull();
+            expect(result!.direction).toBe(MessageDirection.INBOUND);
+            expect(result!.sender).toBe(MessageSender.PATIENT);
+            expect(result!.content).toBe('Hello from patient');
+        });
+
+        it('should link message to CheckIn when in correct slot', async () => {
+            // Create program instance
+            await programService.createProgramInstance({
+                patientId: testPatientId,
+                templateId: testTemplateId,
+            });
+
+            // Create timestamp for current slot (e.g., 10:00 = MORNING)
+            const now = new Date();
+            now.setHours(10, 0, 0, 0);
+            const timestamp = Math.floor(now.getTime() / 1000);
+
+            const result = await messageService.saveInboundMessage({
+                phone: testPhone,
+                text: 'Morning check-in',
+                whatsappMessageId: 'wa-456',
+                timestamp,
+            });
+
+            expect(result).not.toBeNull();
+            expect(result!.linkedCheckInId).not.toBeNull();
+
+            // Verify CheckIn status updated
+            const checkIn = await prisma.checkIn.findUnique({
+                where: { id: result!.linkedCheckInId! },
+            });
+            expect(checkIn).not.toBeNull();
+            expect(checkIn!.status).toBe(CheckInStatus.RECEIVED);
+        });
+
+        it('should not link message when no matching slot', async () => {
+            // Create program instance
+            await programService.createProgramInstance({
+                patientId: testPatientId,
+                templateId: testTemplateId,
+            });
+
+            // Create timestamp for night (no slot)
+            const now = new Date();
+            now.setHours(3, 0, 0, 0); // 3 AM - no slot
+            const timestamp = Math.floor(now.getTime() / 1000);
+
+            const result = await messageService.saveInboundMessage({
+                phone: testPhone,
+                text: 'Night message',
+                whatsappMessageId: 'wa-789',
+                timestamp,
+            });
+
+            expect(result).not.toBeNull();
+            expect(result!.linkedCheckInId).toBeNull();
+        });
+
+        it('should return null for unknown phone', async () => {
+            const result = await messageService.saveInboundMessage({
+                phone: '+9999999999',
+                text: 'Unknown sender',
+                whatsappMessageId: 'wa-unknown',
+                timestamp: Math.floor(Date.now() / 1000),
+            });
+
+            expect(result).toBeNull();
+        });
+    });
+
+    describe('sendStaffMessage', () => {
+        it('should create outbound message from staff', async () => {
+            const result = await messageService.sendStaffMessage(testPatientId, 'Hello patient!');
+
+            expect(result.direction).toBe(MessageDirection.OUTBOUND);
+            expect(result.sender).toBe(MessageSender.STAFF);
+            expect(result.content).toBe('Hello patient!');
+        });
+    });
+
+    describe('getMessages', () => {
+        it('should return messages for patient', async () => {
+            // Create some messages
+            await messageService.saveInboundMessage({
+                phone: testPhone,
+                text: 'Message 1',
+                whatsappMessageId: 'wa-1',
+                timestamp: Math.floor(Date.now() / 1000),
+            });
+
+            await messageService.sendStaffMessage(testPatientId, 'Message 2');
+
+            const messages = await messageService.getMessages(testPatientId);
+
+            expect(messages.length).toBe(2);
+            expect(messages[0].content).toBe('Message 1');
+            expect(messages[1].content).toBe('Message 2');
+        });
+    });
+});
+
+describe('WhatsApp Service', () => {
+    describe('parseIncomingWebhook', () => {
+        const whatsAppService = new WhatsAppService();
+
+        it('should parse text message', () => {
+            const result = whatsAppService.parseIncomingWebhook({
+                typeWebhook: 'incomingMessageReceived',
+                instanceData: { idInstance: 123, wid: '', typeInstance: '' },
+                timestamp: 1234567890,
+                idMessage: 'msg-123',
+                senderData: { chatId: '77771234567@c.us', sender: '77771234567@c.us', senderName: 'Test' },
+                messageData: {
+                    typeMessage: 'textMessage',
+                    textMessageData: { textMessage: 'Hello' },
+                },
+            });
+
+            expect(result).not.toBeNull();
+            expect(result!.phone).toBe('77771234567');
+            expect(result!.text).toBe('Hello');
+            expect(result!.whatsappMessageId).toBe('msg-123');
+        });
+
+        it('should return null for status updates', () => {
+            const result = whatsAppService.parseIncomingWebhook({
+                typeWebhook: 'outgoingMessageStatus',
+                instanceData: { idInstance: 123, wid: '', typeInstance: '' },
+                timestamp: 1234567890,
+                idMessage: 'msg-123',
+            });
+
+            expect(result).toBeNull();
+        });
+
+        it('should parse image message', () => {
+            const result = whatsAppService.parseIncomingWebhook({
+                typeWebhook: 'incomingMessageReceived',
+                instanceData: { idInstance: 123, wid: '', typeInstance: '' },
+                timestamp: 1234567890,
+                idMessage: 'msg-456',
+                senderData: { chatId: '77771234567@c.us', sender: '77771234567@c.us', senderName: 'Test' },
+                messageData: {
+                    typeMessage: 'imageMessage',
+                    imageMessageData: { downloadUrl: 'https://example.com/image.jpg', caption: 'Photo' },
+                },
+            });
+
+            expect(result).not.toBeNull();
+            expect(result!.mediaUrl).toBe('https://example.com/image.jpg');
+            expect(result!.mediaType).toBe('image');
+            expect(result!.text).toBe('Photo');
+        });
+    });
+});

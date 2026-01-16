@@ -1,0 +1,175 @@
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { PrismaClient, ChatMode, Slot } from '@prisma/client';
+import { PatientService } from '@/modules/patients/patient.service.js';
+import { AppError } from '@/common/errors/AppError.js';
+
+const prisma = new PrismaClient();
+const patientService = new PatientService();
+
+describe('Patients Module', () => {
+    let testClinicId: string;
+    let testTemplateId: string;
+    const testPhoneBase = '+7770' + Date.now();
+
+    beforeAll(async () => {
+        await prisma.$connect();
+
+        // Create test clinic
+        const clinic = await prisma.clinic.create({
+            data: { name: 'Test Clinic Patients', isActive: true },
+        });
+        testClinicId = clinic.id;
+
+        // Create test template for program assignment
+        const template = await prisma.programTemplate.create({
+            data: {
+                name: 'Test Template Patients',
+                durationDays: 7,
+                slotsPerDay: [Slot.MORNING],
+                isActive: true,
+                rules: {},
+            },
+        });
+        testTemplateId = template.id;
+    });
+
+    afterAll(async () => {
+        // Clean up
+        await prisma.checkIn.deleteMany();
+        await prisma.programInstance.deleteMany();
+        await prisma.patient.deleteMany();
+        await prisma.programTemplate.delete({ where: { id: testTemplateId } });
+        await prisma.clinic.delete({ where: { id: testClinicId } });
+        await prisma.$disconnect();
+    });
+
+    beforeEach(async () => {
+        // Clean up patients created during tests
+        // await prisma.patient.deleteMany(); // Too aggressive, might delete seeded data if running on shared DB
+        // Instead we rely on unique phones generated per test
+    });
+
+    describe('createPatient', () => {
+        it('should create a patient successfully without program', async () => {
+            const phone = testPhoneBase + '1';
+            const dto = {
+                fullName: 'Test Patient 1',
+                phone,
+                clinicId: testClinicId,
+            };
+
+            const result = await patientService.createPatient(dto);
+
+            expect(result.id).toBeDefined();
+            expect(result.fullName).toBe(dto.fullName);
+            expect(result.phone).toBe(dto.phone);
+            expect(result.programAssigned).toBeFalsy();
+
+            const dbPatient = await prisma.patient.findUnique({ where: { id: result.id } });
+            expect(dbPatient).toBeDefined();
+            expect(dbPatient?.chatMode).toBe(ChatMode.AI); // Default
+        });
+
+        it('should fail when creating patient with duplicate phone', async () => {
+            const phone = testPhoneBase + '2';
+            await patientService.createPatient({
+                fullName: 'Original Patient',
+                phone,
+                clinicId: testClinicId,
+            });
+
+            await expect(
+                patientService.createPatient({
+                    fullName: 'Duplicate Patient',
+                    phone,
+                    clinicId: testClinicId,
+                })
+            ).rejects.toThrow(AppError);
+        });
+
+        it('should create patient and assign program when templateId is provided', async () => {
+            const phone = testPhoneBase + '3';
+            const dto = {
+                fullName: 'Program Patient',
+                phone,
+                clinicId: testClinicId,
+                templateId: testTemplateId,
+                programStartDate: new Date().toISOString(),
+            };
+
+            const result = await patientService.createPatient(dto);
+
+            expect(result.id).toBeDefined();
+            expect(result.programAssigned).toBe(true);
+
+            // Verify program instance created
+            const program = await prisma.programInstance.findFirst({
+                where: { patientId: result.id, status: 'ACTIVE' },
+            });
+            expect(program).toBeDefined();
+            expect(program?.templateId).toBe(testTemplateId);
+
+            // Verify check-ins created
+            const checkInsCount = await prisma.checkIn.count({
+                where: { programInstanceId: program!.id },
+            });
+            expect(checkInsCount).toBeGreaterThan(0);
+        });
+    });
+
+    describe('listPatients', () => {
+        it('should list patients with pagination', async () => {
+            const phonePrefix = testPhoneBase + 'List';
+            // Create a few patients
+            await prisma.patient.createMany({
+                data: [
+                    { fullName: 'List User A', phone: phonePrefix + 'A', clinicId: testClinicId },
+                    { fullName: 'List User B', phone: phonePrefix + 'B', clinicId: testClinicId },
+                    { fullName: 'List User C', phone: phonePrefix + 'C', clinicId: testClinicId },
+                ],
+            });
+
+            const result = await patientService.listPatients({ limit: 2, offset: 0 });
+            expect(result.items.length).toBeGreaterThanOrEqual(2);
+            expect(result.total).toBeGreaterThanOrEqual(3);
+        });
+
+        it('should filter patients by search query', async () => {
+            const uniqueName = `UniqueName${Date.now()}`;
+            await patientService.createPatient({
+                fullName: uniqueName,
+                phone: testPhoneBase + 'Search',
+                clinicId: testClinicId,
+            });
+
+            const result = await patientService.listPatients({
+                search: uniqueName,
+                limit: 10,
+                offset: 0,
+            });
+
+            expect(result.items.length).toBe(1);
+            expect(result.items[0].fullName).toBe(uniqueName);
+        });
+    });
+
+    describe('getPatientById', () => {
+        it('should return patient details by ID', async () => {
+            const patient = await patientService.createPatient({
+                fullName: 'Get By ID User',
+                phone: testPhoneBase + 'Get',
+                clinicId: testClinicId,
+            });
+
+            const result = await patientService.getPatientById(patient.id);
+            expect(result.id).toBe(patient.id);
+            expect(result.fullName).toBe('Get By ID User');
+        });
+
+        it('should throw Not Found for non-existent ID', async () => {
+            await expect(
+                patientService.getPatientById('non-existent-id')
+            ).rejects.toThrow(AppError);
+        });
+    });
+});
