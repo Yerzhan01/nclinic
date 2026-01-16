@@ -87,4 +87,7 @@ jobs:
             echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u Yerzhan01 --password-stdin
             docker compose pull
             docker compose up -d
+            sleep 10
+            docker compose exec -T api npx prisma migrate deploy
+            docker compose exec -T api npx prisma db seed
             docker image prune -f
