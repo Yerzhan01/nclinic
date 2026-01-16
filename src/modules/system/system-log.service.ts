@@ -17,10 +17,11 @@ export class SystemLogService {
                 }
             });
 
-            if (level === 'ERROR' || level === 'WARN') {
-                await import('./telegram-bot.service.js').then(({ telegramBotService }) => {
-                    telegramBotService.notify(`[${category}] ${message}`, level);
-                }).catch(() => { }); // Prevent circular dependency crash or init issues
+            // Log to console for ERROR/WARN
+            if (level === 'ERROR') {
+                logger.error({ category, meta }, message);
+            } else if (level === 'WARN') {
+                logger.warn({ category, meta }, message);
             }
         } catch (error) {
             // Fallback to console if DB write fails (e.g. connection lost)
