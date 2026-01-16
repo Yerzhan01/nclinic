@@ -182,6 +182,68 @@ export class AIQualityService {
     }
 
     /**
+     * Get comprehensive dashboard stats
+     */
+    async getDashboardStats(): Promise<{
+        totalMessages: number;
+        aiResponses: number;
+        patientMessages: number;
+        handoffCount: number;
+        qualityIssues: number;
+        errorRate: number;
+        qualityByType: Record<string, number>;
+    }> {
+        const weekStart = new Date();
+        weekStart.setDate(weekStart.getDate() - 7);
+
+        // Get message counts
+        const [totalMessages, aiResponses, patientMessages] = await Promise.all([
+            prisma.message.count({
+                where: { createdAt: { gte: weekStart } },
+            }),
+            prisma.message.count({
+                where: { createdAt: { gte: weekStart }, sender: 'AI' },
+            }),
+            prisma.message.count({
+                where: { createdAt: { gte: weekStart }, sender: 'PATIENT' },
+            }),
+        ]);
+
+        // Get handoff count (patients in HUMAN mode)
+        const handoffCount = await prisma.patient.count({
+            where: {
+                chatMode: 'HUMAN',
+            },
+        });
+
+        // Get quality issues with breakdown
+        const qualityLogs = await prisma.aIQualityLog.findMany({
+            where: { createdAt: { gte: weekStart } },
+            select: { errorType: true },
+        });
+
+        const qualityByType: Record<string, number> = {};
+        for (const log of qualityLogs) {
+            qualityByType[log.errorType] = (qualityByType[log.errorType] || 0) + 1;
+        }
+
+        const qualityIssues = qualityLogs.length;
+
+        // Calculate error rate
+        const errorRate = aiResponses > 0 ? (qualityIssues / aiResponses) * 100 : 0;
+
+        return {
+            totalMessages,
+            aiResponses,
+            patientMessages,
+            handoffCount,
+            qualityIssues,
+            errorRate: Math.round(errorRate * 100) / 100,
+            qualityByType,
+        };
+    }
+
+    /**
      * Get recent error logs for analytics detail view
      */
     async getRecentLogs(limit: number = 20): Promise<Array<{

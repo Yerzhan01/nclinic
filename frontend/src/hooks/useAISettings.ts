@@ -90,3 +90,46 @@ export function useTogglePatientAI() {
         },
     });
 }
+
+// Dashboard Stats
+export interface AIDashboardStats {
+    totalMessages: number;
+    aiResponses: number;
+    patientMessages: number;
+    handoffCount: number;
+    qualityIssues: number;
+    errorRate: number;
+    qualityByType: Record<string, number>;
+}
+
+export function useAIDashboard() {
+    return useQuery({
+        queryKey: ['ai-dashboard'],
+        queryFn: async () => {
+            const { data } = await api.get<{ data: AIDashboardStats }>('/integrations/ai-testing/dashboard');
+            return data.data;
+        },
+        refetchInterval: 60000, // Refresh every minute
+    });
+}
+
+// Quality Logs
+export interface AIQualityLog {
+    id: string;
+    patientId: string;
+    patientName: string;
+    errorType: string;
+    aiContent: string;
+    patientReply: string;
+    createdAt: string;
+}
+
+export function useAIQualityLogs(limit = 20) {
+    return useQuery({
+        queryKey: ['ai-quality-logs', limit],
+        queryFn: async () => {
+            const { data } = await api.get<{ data: AIQualityLog[] }>(`/integrations/ai-testing/quality/logs?limit=${limit}`);
+            return data.data;
+        },
+    });
+}

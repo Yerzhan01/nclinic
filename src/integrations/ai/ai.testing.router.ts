@@ -82,6 +82,12 @@ export async function registerAITestingRoutes(fastify: FastifyInstance): Promise
     // QUALITY ANALYTICS
     // ============================================================
 
+    // Get dashboard stats
+    fastify.get('/dashboard', async (_request: FastifyRequest, reply: FastifyReply) => {
+        const stats = await aiQualityService.getDashboardStats();
+        return reply.send(successResponse(stats));
+    });
+
     // Get quality stats
     fastify.get('/quality/stats', async (_request: FastifyRequest, reply: FastifyReply) => {
         const stats = await aiQualityService.getQualityStats();

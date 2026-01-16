@@ -147,7 +147,6 @@ export default function IntegrationsPage() {
     });
 
     // Update form default values when status loads or dialog opens
-    // Update form default values when status loads or dialog opens
     useEffect(() => {
         if (amoDialogOpen && amoStatus) {
             if (amoStatus.baseDomain) amoForm.setValue('baseDomain', amoStatus.baseDomain);

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
-import { Loader2, Save, Settings, Shield, Database, Sparkles, Plus, X } from 'lucide-react';
+import { Loader2, Save, Settings, Shield, Database, Sparkles, X } from 'lucide-react';
 
 import { useAISettings, useUpdateAISettings, type AISettings } from '@/hooks/useAISettings';
 
@@ -119,6 +119,11 @@ export default function AISettingsPage() {
                     <h1 className="text-3xl font-bold">AI Control Center</h1>
                     <p className="text-muted-foreground">Настройки AI-ассистента</p>
                 </div>
+                <a href="/settings/ai/quality">
+                    <Button variant="outline" type="button">
+                        📊 Quality Dashboard
+                    </Button>
+                </a>
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)}>
