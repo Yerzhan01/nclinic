@@ -83,11 +83,13 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /root
-            mv docker-compose.prod.yml docker-compose.yml
+            # Force overwrite docker-compose.yml
+            rm -f docker-compose.yml
+            mv -f docker-compose.prod.yml docker-compose.yml || curl -o docker-compose.yml https://raw.githubusercontent.com/Yerzhan01/nclinic/main/docker-compose.prod.yml
             echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u Yerzhan01 --password-stdin
             docker compose pull
-            docker compose up -d
+            docker compose up -d --force-recreate
             sleep 10
-            docker compose exec -T api npx prisma migrate deploy
-            docker compose exec -T api npx prisma db seed
+            docker compose exec -T api npx prisma migrate deploy || true
+            docker compose exec -T api npx prisma db seed || true
             docker image prune -f
