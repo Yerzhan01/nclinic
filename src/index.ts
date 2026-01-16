@@ -11,7 +11,6 @@ import { initializeScheduler } from '@/modules/scheduler/scheduler.js';
 import { startAIWorker } from '@/integrations/ai/ai.worker.js';
 import '@/modules/scheduler/reminder.worker.js';
 import '@/jobs/amoSync.worker.js';
-import { telegramBotService } from '@/modules/system/telegram-bot.service.js';
 
 async function bootstrap() {
     const app = createServer();
@@ -21,9 +20,6 @@ async function bootstrap() {
         // Connect to external services
         await connectDatabase();
         await connectRedis();
-
-        // Initialize Telegram Bot
-        await telegramBotService.initialize().catch((err: Error) => logger.error({ err }, 'Failed to init Telegram Bot'));
 
         // Initialize Scheduler
         if (env.NODE_ENV !== 'test') {
