@@ -74,11 +74,11 @@ jobs:
 
       - name: Copy production compose file
         run: |
-          scp -i ~/.ssh/id_rsa docker-compose.prod.yml ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/root/docker-compose.yml
+          scp -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa docker-compose.prod.yml ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}:/root/docker-compose.yml
 
       - name: Deploy to Server
         run: |
-          ssh -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }} << 'EOF'
             cd /root
             
             # Login to GHCR (using PAT from secrets)
