@@ -201,6 +201,31 @@ export class AIPromptBuilder {
             ? ragContext.map(r => `- ${r.content}`).join('\n')
             : 'Релевантной информации не найдено.';
 
+        // Get recent check-ins (last 7 days)
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        const recentCheckIns = await prisma.checkIn.findMany({
+            where: {
+                patientId,
+                createdAt: { gte: sevenDaysAgo }
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 20
+        });
+
+        // Format check-ins
+        const formattedCheckIns = recentCheckIns.length > 0
+            ? recentCheckIns.map(c => {
+                const date = c.createdAt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+                let val = '';
+                if (c.valueNumber !== null) val = String(c.valueNumber);
+                if (c.valueText) val = c.valueText;
+                if (c.valueBool !== null) val = c.valueBool ? 'Да' : 'Нет';
+                return `- ${date}: [${c.type}] ${val}`;
+            }).join('\n')
+            : 'Нет данных за неделю.';
+
         // Build final prompt
         const timeContext = buildTimeContext();
 
@@ -215,6 +240,9 @@ ${timeContext}
 Имя: ${patient.fullName}
 Программа: ${programInfo}
 ${patientContext ? patientContext : ''}
+
+=== ПОСЛЕДНИЕ ЧЕК-ИНЫ (7 дней) ===
+${formattedCheckIns}
 
 === ИСТОРИЯ (сжато) ===
 ${summary || 'Новый диалог, истории нет.'}
@@ -234,6 +262,7 @@ ${ragContextStr}
             variantId: variant?.id,
             hasSummary: !!summary,
             ragContextCount: ragContext.length,
+            checkInsCount: recentCheckIns.length,
         }, 'Prompt built');
 
         return {
