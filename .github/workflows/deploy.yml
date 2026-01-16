@@ -2,34 +2,46 @@ name: Deploy to Production
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch: # Manual trigger from GitHub UI
+    branches: [ "main" ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to server via SSH
+      - name: Copy files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "."
+          target: "/root/nclinic-app"
+          rm: true # Удалить старые файлы перед копированием (clean deploy)
+          
+      - name: Execute remote commands
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /root
+            echo "🚀 Deployment started..."
+            cd /root/nclinic-app
             
-            # Pull latest changes from git
-            git --work-tree=/root --git-dir=/root/nclinic.git checkout -f main
+            # Восстанавливаем .env (если он есть на сервере в backup)
+            # Или лучше: создать его через Secrets, но пока оставим как есть.
+            if [ -f /root/.env.production ]; then
+                cp /root/.env.production .env
+            fi
             
-            # Build and restart Docker containers
-            docker compose build api
-            docker compose up -d api
+            echo "🐳 Building containers..."
+            docker compose build --no-cache api frontend
             
-            # Apply database migrations/seed if needed
-            # docker compose exec -T api npm run db:seed
+            echo "🔄 Restarting services..."
+            docker compose up -d api frontend --remove-orphans
+            docker image prune -f
             
-            echo "✅ Deployment completed at $(date)"
+            echo "✅ Deployment finished!"

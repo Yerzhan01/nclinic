@@ -36,27 +36,13 @@ export class MessageService {
             }
         }
 
-        // Normalize phone
-        const normalizedPhone = this.normalizePhone(phone);
-
-        logger.info({
-            raw: phone,
-            normalized: normalizedPhone,
-            plusVariant: '+' + normalizedPhone
-        }, 'Searching for patient by phone (DEBUG)');
-
-        // Find patient by phone (try both variants: 777... and +777...)
-        const patient = await prisma.patient.findFirst({
-            where: {
-                OR: [
-                    { phone: normalizedPhone },
-                    { phone: '+' + normalizedPhone }
-                ]
-            },
+        // Find patient by phone
+        const patient = await prisma.patient.findUnique({
+            where: { phone: this.normalizePhone(phone) },
         });
 
         if (!patient) {
-            logger.warn({ phone, normalizedPhone }, 'Inbound message from unknown phone, ignoring');
+            logger.warn({ phone }, 'Inbound message from unknown phone, ignoring');
             return null;
         }
 
