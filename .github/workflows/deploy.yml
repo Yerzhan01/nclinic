@@ -19,23 +19,26 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             echo "🚀 Deployment started..."
-            cd /root/nclinic-app
+            cd /root
             
-            # Обновляем код через Git (быстро и надежно)
-            echo "📥 Pulling latest code..."
-            git fetch --all
-            git reset --hard origin/main
-            
-            # Восстанавливаем .env
-            if [ -f /root/.env.production ]; then
-                cp /root/.env.production .env
+            # Проверяем, есть ли git репозиторий
+            if [ ! -d ".git" ]; then
+                echo "📦 Git not initialized, setting up..."
+                git init
+                git remote add origin https://github.com/Yerzhan01/nclinic.git
+                git fetch origin main
+                git checkout -f main
+            else
+                echo "📥 Pulling latest code..."
+                git fetch --all
+                git reset --hard origin/main
             fi
             
             echo "🐳 Building containers..."
-            # Собираем и перезапускаем c --build (чтобы точно подхватить изменения)
             docker compose up -d --build --remove-orphans api frontend
             
             echo "🧹 Cleaning up..."
             docker image prune -f
             
             echo "✅ Deployment finished!"
+
