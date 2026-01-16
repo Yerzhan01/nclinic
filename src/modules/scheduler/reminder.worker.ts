@@ -77,7 +77,8 @@ async function processDailyUpdates() {
             // Trigger AmoCRM Sync based on Week
             let trigger: import('@/integrations/amocrm/amocrm.types.js').AmoMappingTrigger | null = null;
 
-            if (newDay === 8) trigger = 'WEEK_2';
+            if (newDay === 1) trigger = 'WEEK_1';
+            else if (newDay === 8) trigger = 'WEEK_2';
             else if (newDay === 15) trigger = 'WEEK_3';
             else if (newDay === 22) trigger = 'WEEK_4';
             else if (newDay === 29) trigger = 'WEEK_5';

@@ -694,8 +694,12 @@ export default function IntegrationsPage() {
                                                             {[
                                                                 { key: 'PROGRAM_STARTED', label: '🚀 Старт программы' },
                                                                 { key: 'RISK_HIGH', label: '⚠️ Высокий риск' },
+                                                                { key: 'WEEK_1', label: '📅 1-я неделя' },
                                                                 { key: 'WEEK_2', label: '📅 2-я неделя' },
+                                                                { key: 'WEEK_3', label: '📅 3-я неделя' },
                                                                 { key: 'WEEK_4', label: '📅 4-я неделя' },
+                                                                { key: 'WEEK_5', label: '📅 5-я неделя' },
+                                                                { key: 'WEEK_6', label: '📅 6-я неделя' },
                                                             ].map(({ key, label }) => (
                                                                 <div key={key} className="flex items-center gap-2 p-2 bg-muted/50 rounded">
                                                                     <span className="text-xs font-medium w-32 shrink-0">{label}</span>
