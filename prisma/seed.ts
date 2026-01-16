@@ -7,23 +7,31 @@ const prisma = new PrismaClient();
 async function main() {
     console.log('🌱 Starting seed...');
 
-    // 1. Create Admin User
-    const adminEmail = 'admin@nclinic.kz';
-    const adminPassword = 'admin123';
-    const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
+    // 1. Create Admin Users
+    const admins = [
+        { email: 'admin@nclinic.kz', password: 'admin123', fullName: 'System Administrator' },
+        { email: 'doctor1@nclinic.kz', password: 'doctor1pass', fullName: 'Doctor One' },
+        { email: 'doctor2@nclinic.kz', password: 'doctor2pass', fullName: 'Doctor Two' },
+        { email: 'manager@nclinic.kz', password: 'manager123', fullName: 'Clinic Manager' },
+        { email: 'nurse@nclinic.kz', password: 'nurse123', fullName: 'Head Nurse' },
+    ];
 
-    if (!existingAdmin) {
-        const passwordHash = await bcrypt.hash(adminPassword, 10);
-        await prisma.user.create({
-            data: {
-                email: adminEmail,
-                passwordHash,
-                fullName: 'System Administrator',
-                role: UserRole.ADMIN,
-            },
-        });
-        console.log('✅ Admin user created (email: admin@nclinic.kz, password: admin123)');
+    for (const admin of admins) {
+        const existing = await prisma.user.findUnique({ where: { email: admin.email } });
+        if (!existing) {
+            const passwordHash = await bcrypt.hash(admin.password, 10);
+            await prisma.user.create({
+                data: {
+                    email: admin.email,
+                    passwordHash,
+                    fullName: admin.fullName,
+                    role: UserRole.ADMIN,
+                },
+            });
+            console.log(`✅ Admin created: ${admin.email} / ${admin.password}`);
+        }
     }
+    console.log('✅ All admin users processed');
 
     // 2. Create Default Clinic
     const clinicName = 'Main Clinic';

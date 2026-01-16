@@ -40,7 +40,7 @@ export async function registerPlugins(app: FastifyInstance): Promise<void> {
     await app.register(fastifyJwt, {
         secret: env.JWT_SECRET,
         sign: {
-            expiresIn: '15m', // 15 minutes access token
+            expiresIn: '1d', // 1 day access token
         },
     });
 
