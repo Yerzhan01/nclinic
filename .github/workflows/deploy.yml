@@ -39,7 +39,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
+          file: ./docker/Dockerfile
           push: true
           tags: ${{ env.REGISTRY }}/yerzhan01/nclinic-api:latest
           labels: ${{ steps.meta.outputs.labels }}
@@ -49,8 +49,8 @@ jobs:
       - name: Build and push Frontend image
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: ./frontend/Dockerfile
+          context: ./frontend
+          file: ./docker/Dockerfile.frontend
           push: true
           tags: ${{ env.REGISTRY }}/yerzhan01/nclinic-frontend:latest
           labels: ${{ steps.meta.outputs.labels }}
