@@ -138,7 +138,7 @@ export const engagementService = {
      * Check active patients for inactivity and nudge them
      */
     async processReEngagement(): Promise<number> {
-        const INACTIVE_THRESHOLD_HOURS = 24;
+        const INACTIVE_THRESHOLD_HOURS = 4;
         const threshold = new Date();
         threshold.setHours(threshold.getHours() - INACTIVE_THRESHOLD_HOURS);
 
