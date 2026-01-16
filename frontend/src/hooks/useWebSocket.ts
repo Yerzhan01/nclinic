@@ -16,7 +16,7 @@ export function useWebSocket() {
             const token = localStorage.getItem('accessToken');
             if (!token) return;
 
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api/v1';
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? '' : 'http://localhost:3000/api/v1');
             // Handle both http and https for ws/wss
             const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             // If apiUrl is absolute, parse it to get host/path
@@ -28,8 +28,9 @@ export function useWebSocket() {
                 const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
                 wsUrl = `${protocol}//${url.host}${url.pathname}/ws?token=${token}`;
             } catch (e) {
-                // Fallback if API_URL is relative (unlikely in this setup but safe)
-                wsUrl = `${wsProtocol}//${window.location.host}/api/v1/ws?token=${token}`;
+                // Fallback if API_URL is relative or missing
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                wsUrl = `${protocol}//${window.location.host}/api/v1/ws?token=${token}`;
             }
 
             console.log('Connecting WS:', wsUrl);
