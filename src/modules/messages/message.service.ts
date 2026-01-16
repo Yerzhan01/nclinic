@@ -80,6 +80,21 @@ export class MessageService {
             else text = '[Медиа файл]';
         }
 
+        // Vision API: Analyze image if present
+        let imageAnalysis = null;
+        if (mediaUrl && input.mediaType === 'image') {
+            logger.info({ mediaUrl, patientId: patient.id }, 'Analyzing image with Vision API');
+            imageAnalysis = await aiService.analyzeImage(mediaUrl, patient.id);
+
+            if (imageAnalysis) {
+                // Add image analysis to text context for AI
+                const analysisContext = imageAnalysis.response ||
+                    `[Анализ фото: ${imageAnalysis.imageType}, ${imageAnalysis.description || ''}]`;
+                text = (text ? text + '\n' : '') + `📷 ${analysisContext}`;
+                logger.info({ imageType: imageAnalysis.imageType }, 'Image analysis completed');
+            }
+        }
+
 
 
 
