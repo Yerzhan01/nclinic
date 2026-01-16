@@ -87,11 +87,37 @@ export class MessageService {
             imageAnalysis = await aiService.analyzeImage(mediaUrl, patient.id);
 
             if (imageAnalysis) {
-                // Add image analysis to text context for AI
-                const analysisContext = imageAnalysis.response ||
-                    `[Анализ фото: ${imageAnalysis.imageType}, ${imageAnalysis.description || ''}]`;
+                let analysisContext = '';
+
+                // Format detailed response based on image type
+                if (imageAnalysis.imageType === 'food' && imageAnalysis.foods && imageAnalysis.foods.length > 0) {
+                    // Food photo: Show products and calories
+                    const foodList = imageAnalysis.foods
+                        .map(f => `• ${f.name} ${f.portion ? `(${f.portion})` : ''} — ~${f.caloriesEstimate || '?'} ккал`)
+                        .join('\n');
+
+                    const assessment = {
+                        'excellent': '🌟 Отличный выбор!',
+                        'good': '👍 Хороший выбор!',
+                        'moderate': '⚖️ Умеренно',
+                        'needs_improvement': '💡 Можно улучшить'
+                    }[imageAnalysis.mealAssessment || 'moderate'];
+
+                    analysisContext = `📋 Анализ приёма пищи:\n${foodList}\n\n🔢 Итого: ~${imageAnalysis.totalCalories || 0} ккал\n${assessment}\n\n${imageAnalysis.suggestion || imageAnalysis.response || ''}`;
+                } else if (imageAnalysis.imageType === 'scale' && imageAnalysis.extractedValue) {
+                    // Scale photo
+                    analysisContext = `⚖️ Вес: ${imageAnalysis.extractedValue} кг\n${imageAnalysis.response || 'Записано!'}`;
+                } else if (imageAnalysis.imageType === 'steps' && imageAnalysis.extractedValue) {
+                    // Steps photo
+                    analysisContext = `👟 Шаги: ${imageAnalysis.extractedValue}\n${imageAnalysis.response || 'Отличная активность!'}`;
+                } else {
+                    // Other
+                    analysisContext = imageAnalysis.response ||
+                        `[Анализ фото: ${imageAnalysis.imageType}, ${imageAnalysis.description || ''}]`;
+                }
+
                 text = (text ? text + '\n' : '') + `📷 ${analysisContext}`;
-                logger.info({ imageType: imageAnalysis.imageType }, 'Image analysis completed');
+                logger.info({ imageType: imageAnalysis.imageType, totalCalories: imageAnalysis.totalCalories }, 'Image analysis completed');
             }
         }
 
