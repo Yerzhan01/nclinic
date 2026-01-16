@@ -170,7 +170,7 @@ export class AIService {
 
         // Build conversation history for context (last 10 messages)
         const conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
-        const historyMessages = recentMessages.slice(-10); // Last 10 messages
+        const historyMessages = recentMessages.slice(-20); // Last 20 messages
 
         for (const msg of historyMessages) {
             if (msg.content) {
