@@ -11,17 +11,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Copy files to server
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "."
-          target: "/root/nclinic-app"
-          rm: true # Удалить старые файлы перед копированием (clean deploy)
-          
-      - name: Execute remote commands
+      - name: Deploy to Server
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -31,17 +21,21 @@ jobs:
             echo "🚀 Deployment started..."
             cd /root/nclinic-app
             
-            # Восстанавливаем .env (если он есть на сервере в backup)
-            # Или лучше: создать его через Secrets, но пока оставим как есть.
+            # Обновляем код через Git (быстро и надежно)
+            echo "📥 Pulling latest code..."
+            git fetch --all
+            git reset --hard origin/main
+            
+            # Восстанавливаем .env
             if [ -f /root/.env.production ]; then
                 cp /root/.env.production .env
             fi
             
             echo "🐳 Building containers..."
-            docker compose build --no-cache api frontend
+            # Собираем и перезапускаем c --build (чтобы точно подхватить изменения)
+            docker compose up -d --build --remove-orphans api frontend
             
-            echo "🔄 Restarting services..."
-            docker compose up -d api frontend --remove-orphans
+            echo "🧹 Cleaning up..."
             docker image prune -f
             
             echo "✅ Deployment finished!"
