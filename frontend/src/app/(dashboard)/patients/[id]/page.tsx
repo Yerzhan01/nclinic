@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { usePatient, useUpdatePatient } from '@/hooks/usePatients';
 import { useActiveProgram, useProgramTemplates, useAssignProgram, usePauseProgram } from '@/hooks/useProgram';
 import { useMessages, useSendMessage } from '@/hooks/useMessages';
@@ -120,6 +121,8 @@ const slotLabels: Record<Slot, string> = {
 
 export default function PatientDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
+    const searchParams = useSearchParams();
+    const defaultTab = searchParams.get('tab') || 'chat';
     const [message, setMessage] = useState('');
 
     const { data: patient, isLoading: patientLoading } = usePatient(id);
@@ -355,7 +358,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
             </div>
 
             {/* Tabs */}
-            <Tabs defaultValue="chat">
+            <Tabs defaultValue={defaultTab}>
                 <TabsList>
                     <TabsTrigger value="program" className="gap-2">
                         <Calendar className="h-4 w-4" />

@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, MessageSquare, ChartBar, Calendar, Settings, Send, User } from 'lucide-react';
+import { Search, MessageSquare, ClipboardList, Calendar, Send, User } from 'lucide-react';
 import Link from 'next/link';
 import type { ChatMode } from '@/types/api';
 import { CreatePatientDialog } from '@/components/patients/CreatePatientDialog';
@@ -122,19 +122,19 @@ function PatientPreview({ patientId }: { patientId: string }) {
 
             {/* Quick Actions */}
             <div className="p-3 border-b flex gap-2">
-                <Link href={`/patients/${patientId}`} className="flex-1">
+                <Link href={`/patients/${patientId}?tab=chat`} className="flex-1">
                     <Button variant="outline" size="sm" className="w-full gap-1">
                         <MessageSquare className="h-4 w-4" /> Чат
                     </Button>
                 </Link>
-                <Link href={`/patients/${patientId}#checkins`} className="flex-1">
+                <Link href={`/patients/${patientId}?tab=calendar`} className="flex-1">
                     <Button variant="outline" size="sm" className="w-full gap-1">
                         <Calendar className="h-4 w-4" /> Чекины
                     </Button>
                 </Link>
-                <Link href={`/patients/${patientId}#tasks`} className="flex-1">
+                <Link href={`/patients/${patientId}?tab=tasks`} className="flex-1">
                     <Button variant="outline" size="sm" className="w-full gap-1">
-                        <ChartBar className="h-4 w-4" /> Задачи
+                        <ClipboardList className="h-4 w-4" /> Задачи
                     </Button>
                 </Link>
             </div>
