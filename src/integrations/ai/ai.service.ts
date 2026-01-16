@@ -168,12 +168,24 @@ export class AIService {
 
         const { prompt, variantId } = await aiPromptBuilder.buildPrompt(patientId, recentMessages);
 
+        // Build conversation history for context (last 10 messages)
+        const conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+        const historyMessages = recentMessages.slice(-10); // Last 10 messages
+
+        for (const msg of historyMessages) {
+            if (msg.content) {
+                const role = msg.sender === 'PATIENT' ? 'user' : 'assistant';
+                conversationHistory.push({ role, content: msg.content });
+            }
+        }
+
         try {
             const requestBody: Record<string, unknown> = {
                 model: config.model,
                 temperature: config.temperature ?? 0.2,
                 messages: [
                     { role: 'system', content: prompt },
+                    ...conversationHistory, // Include chat history
                     { role: 'user', content: text },
                 ],
                 response_format: { type: 'json_object' },
