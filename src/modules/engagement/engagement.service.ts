@@ -132,5 +132,84 @@ export const engagementService = {
             atRisk: scores.filter(s => s.status === 'AT_RISK').length,
             highRisk: scores.filter(s => s.status === 'HIGH_RISK').length,
         };
+    },
+
+    /**
+     * Check active patients for inactivity and nudge them
+     */
+    async processReEngagement(): Promise<number> {
+        const INACTIVE_THRESHOLD_HOURS = 24;
+        const threshold = new Date();
+        threshold.setHours(threshold.getHours() - INACTIVE_THRESHOLD_HOURS);
+
+        // Find patients with active programs
+        const activePatients = await prisma.patient.findMany({
+            where: {
+                programs: { some: { status: 'ACTIVE' } },
+                aiPaused: false,
+            },
+            select: {
+                id: true,
+                fullName: true,
+                phone: true,
+                messages: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 1
+                }
+            }
+        });
+
+        // Dynamic import to avoid circular dependencies
+        const { messageService } = await import('@/modules/messages/message.service.js');
+        const { logger } = await import('@/common/utils/logger.js');
+
+        let nudgesSent = 0;
+
+        for (const patient of activePatients) {
+            const lastMsg = patient.messages[0];
+
+            // If patient has no messages OR last message is older than threshold
+            const isSilent = !lastMsg || lastMsg.createdAt < threshold;
+
+            if (isSilent) {
+                // Check if we already nudged them TODAY to avoid spam
+                const startOfDay = new Date();
+                startOfDay.setHours(0, 0, 0, 0);
+
+                const existingNudge = await prisma.message.findFirst({
+                    where: {
+                        patientId: patient.id,
+                        sender: 'SYSTEM',
+                        createdAt: { gte: startOfDay },
+                        // Ideally we'd tag these, but for now any system message counts as potential interaction/reminder
+                    }
+                });
+
+                if (!existingNudge) {
+                    try {
+                        const nudge = this.getRandomNudge(patient.fullName);
+                        logger.info({ patientId: patient.id, lastMsgDate: lastMsg?.createdAt }, 'Sending re-engagement nudge');
+
+                        await messageService.sendSystemMessage(patient.id, nudge);
+                        nudgesSent++;
+                    } catch (error) {
+                        logger.error({ error, patientId: patient.id }, 'Failed to send re-engagement nudge');
+                    }
+                }
+            }
+        }
+
+        return nudgesSent;
+    },
+
+    getRandomNudge(name: string): string {
+        const nudges = [
+            `Привет, ${name}! 👋 Как твои дела сегодня?`,
+            `${name}, всё ли в порядке? Мы не получали от тебя вестей сегодня.`,
+            `Как проходит твой день, ${name}? Не забывай про чек-ины! ✨`,
+            `Привет! Если есть вопросы или сложности — я здесь, чтобы помочь. 💙`,
+            `${name}, просто хотел узнать, как настроение? 😊`
+        ];
+        return nudges[Math.floor(Math.random() * nudges.length)];
     }
 };

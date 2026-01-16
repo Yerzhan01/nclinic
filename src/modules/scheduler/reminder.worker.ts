@@ -24,6 +24,12 @@ export const reminderWorker = createWorker(
             if (jobName === 'daily-program-update') {
                 await processDailyUpdates();
                 await systemLogService.create('INFO', 'SCHEDULER', 'Daily program update completed');
+            } else if (jobName === 'process-re-engagement') {
+                const asked = await engagementService.processReEngagement();
+                if (asked > 0) {
+                    await systemLogService.create('INFO', 'SCHEDULER', `Sent ${asked} re-engagement nudges`);
+                    logger.info(`Re-engagement job: Sent ${asked} messages.`);
+                }
             } else {
                 // Default behavior (check-missed-checkins or generic)
                 const count = await programService.processReminders();

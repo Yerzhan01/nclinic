@@ -33,5 +33,17 @@ export async function initializeScheduler() {
         }
     );
 
+    // Schedule Re-engagement (Hourly)
+    await reminderQueue.add(
+        'process-re-engagement',
+        {},
+        {
+            repeat: {
+                every: 60 * 60 * 1000, // 1 hour
+            },
+            jobId: 'process-re-engagement-job'
+        }
+    );
+
     logger.info(`Scheduler initialized: ${REMINDER_QUEUE} jobs added`);
 }
