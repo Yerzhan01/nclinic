@@ -306,6 +306,35 @@ export class ProgramService {
         return prisma.programTemplate.delete({ where: { id } });
     }
 
+    /**
+     * Pause or resume a program for a patient
+     */
+    async pauseProgram(patientId: string, paused: boolean) {
+        const activeProgram = await prisma.programInstance.findFirst({
+            where: {
+                patientId,
+                status: 'ACTIVE',
+            },
+        });
+
+        if (!activeProgram) {
+            throw AppError.notFound('No active program found for this patient');
+        }
+
+        const updated = await prisma.programInstance.update({
+            where: { id: activeProgram.id },
+            data: {
+                status: paused ? 'PAUSED' : 'ACTIVE',
+            },
+            include: {
+                template: true,
+            },
+        });
+
+        logger.info({ patientId, paused, programId: activeProgram.id }, 'Program pause status updated');
+
+        return updated;
+    }
 
     /**
      * Process Dynamic Schedule (Phase 21)

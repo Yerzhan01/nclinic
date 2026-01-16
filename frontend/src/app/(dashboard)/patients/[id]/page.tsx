@@ -2,10 +2,10 @@
 
 import { use, useState } from 'react';
 import { usePatient, useUpdatePatient } from '@/hooks/usePatients';
-import { useActiveProgram } from '@/hooks/useProgram';
+import { useActiveProgram, useProgramTemplates, useAssignProgram, usePauseProgram } from '@/hooks/useProgram';
 import { useMessages, useSendMessage } from '@/hooks/useMessages';
 import { useAlerts, useResolveAlert } from '@/hooks/useAlerts';
-import { usePatientTasks } from '@/hooks/useTasks';
+import { usePatientTasks, useCreateTask } from '@/hooks/useTasks';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
@@ -20,8 +20,16 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
     ArrowLeft,
@@ -37,6 +45,7 @@ import {
     Play,
     Pause,
     RefreshCw,
+    User,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { ChatMode, Slot, CheckInStatus, AlertLevel, TaskPriority, TaskStatus } from '@/types/api';
@@ -110,7 +119,6 @@ const slotLabels: Record<Slot, string> = {
 };
 
 export default function PatientDetailPage({ params }: { params: Promise<{ id: string }> }) {
-    // Force Rebuild
     const { id } = use(params);
     const [message, setMessage] = useState('');
 
@@ -123,6 +131,14 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     const sendMessage = useSendMessage(id);
     const updatePatient = useUpdatePatient();
     const resolveAlert = useResolveAlert();
+    const createTask = useCreateTask();
+    const pauseProgram = usePauseProgram();
+    const assignProgram = useAssignProgram();
+    const { data: templates = [] } = useProgramTemplates();
+
+    const [showTaskDialog, setShowTaskDialog] = useState(false);
+    const [taskTitle, setTaskTitle] = useState('');
+    const [showAssignDialog, setShowAssignDialog] = useState(false);
 
     const handleToggleChatMode = async () => {
         if (!patient) return;
@@ -159,6 +175,47 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
         }
     };
 
+    const handleSendReminder = async () => {
+        try {
+            await sendMessage.mutateAsync('Напоминаем о необходимости отметиться сегодня! 📊');
+            toast.success('Напоминание отправлено');
+        } catch (error) {
+            toast.error(getErrorMessage(error));
+        }
+    };
+
+    const handleCreateTask = async () => {
+        if (!taskTitle.trim()) return;
+        try {
+            await createTask.mutateAsync({
+                patientId: id,
+                type: 'CUSTOM',
+                title: taskTitle,
+                priority: 'MEDIUM',
+            });
+            setTaskTitle('');
+            setShowTaskDialog(false);
+        } catch (error) {
+            toast.error(getErrorMessage(error));
+        }
+    };
+
+    const handlePauseProgram = async () => {
+        try {
+            await pauseProgram.mutateAsync({ patientId: id, paused: true });
+        } catch (error) {
+            toast.error(getErrorMessage(error));
+        }
+    };
+
+    const handleAssignProgram = async (templateId: string) => {
+        try {
+            await assignProgram.mutateAsync({ patientId: id, templateId });
+            setShowAssignDialog(false);
+        } catch (error) {
+            toast.error(getErrorMessage(error));
+        }
+    };
 
 
     if (patientLoading) {
@@ -220,14 +277,14 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Быстрые действия</DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => toast.info('Функция в разработке (Напоминание)')}>
+                            <DropdownMenuItem onClick={handleSendReminder}>
                                 <Send className="mr-2 h-4 w-4" /> Отправить напоминание
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => toast.info('Функция в разработке (Задача)')}>
+                            <DropdownMenuItem onClick={() => setShowTaskDialog(true)}>
                                 <ClipboardList className="mr-2 h-4 w-4" /> Создать задачу
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => toast.info('Функция в разработке (Пауза)')}>
+                            <DropdownMenuItem onClick={handlePauseProgram} disabled={!program}>
                                 <Pause className="mr-2 h-4 w-4" /> Пауза программы
                             </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -326,7 +383,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                         Календарь
                     </TabsTrigger>
                     <TabsTrigger value="profile" className="gap-2">
-                        <Calendar className="h-4 w-4" />
+                        <User className="h-4 w-4" />
                         Профиль
                     </TabsTrigger>
                     <TabsTrigger value="timeline" className="gap-2">
@@ -377,9 +434,28 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                         <Card>
                             <CardContent className="py-8 text-center">
                                 <p className="text-muted-foreground">Активная программа не найдена</p>
-                                <Button variant="outline" className="mt-4" disabled>
-                                    Назначить программу (скоро)
-                                </Button>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" className="mt-4">
+                                            <Play className="mr-2 h-4 w-4" /> Назначить программу
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent>
+                                        <DropdownMenuLabel>Выберите шаблон</DropdownMenuLabel>
+                                        {templates.length === 0 ? (
+                                            <DropdownMenuItem disabled>Нет доступных шаблонов</DropdownMenuItem>
+                                        ) : (
+                                            templates.map((template) => (
+                                                <DropdownMenuItem
+                                                    key={template.id}
+                                                    onClick={() => handleAssignProgram(template.id)}
+                                                >
+                                                    {template.name} ({template.durationDays} дн.)
+                                                </DropdownMenuItem>
+                                            ))
+                                        )}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </CardContent>
                         </Card>
                     )}
@@ -560,6 +636,31 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                     <PatientProfileCard patientId={id} />
                 </TabsContent>
             </Tabs>
+
+            {/* Task Creation Dialog */}
+            <Dialog open={showTaskDialog} onOpenChange={setShowTaskDialog}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Создать задачу</DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Input
+                            placeholder="Название задачи..."
+                            value={taskTitle}
+                            onChange={(e) => setTaskTitle(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleCreateTask()}
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowTaskDialog(false)}>
+                            Отмена
+                        </Button>
+                        <Button onClick={handleCreateTask} disabled={!taskTitle.trim() || createTask.isPending}>
+                            Создать
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

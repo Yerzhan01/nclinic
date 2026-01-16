@@ -37,4 +37,9 @@ export default async function programRouter(app: FastifyInstance) {
         return programController.deleteTemplate(request, reply);
     });
 
+    // PATCH /:patientId/pause - Pause/resume a program
+    app.patch('/:patientId/pause', async (request, reply) => {
+        return programController.pauseProgram(request, reply);
+    });
+
 }

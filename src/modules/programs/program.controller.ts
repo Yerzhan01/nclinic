@@ -85,6 +85,17 @@ export class ProgramController {
         return reply.send(successResponse({ success: true }));
     }
 
+    /**
+     * PATCH /programs/:patientId/pause - Pause or resume a program
+     */
+    async pauseProgram(request: FastifyRequest, reply: FastifyReply) {
+        const { patientId } = request.params as { patientId: string };
+        const { paused } = request.body as { paused: boolean };
+
+        const result = await programService.pauseProgram(patientId, paused);
+        return reply.send(successResponse(result));
+    }
+
 }
 
 export const programController = new ProgramController();

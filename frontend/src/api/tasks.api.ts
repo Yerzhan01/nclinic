@@ -1,6 +1,6 @@
 import { api } from '@/lib/api';
 import type { ApiResponse } from '@/types/api';
-import type { Task, TaskFilters, TaskStatus } from '@/types/task';
+import type { Task, TaskFilters, TaskStatus, CreateTaskInput } from '@/types/task';
 
 export const tasksApi = {
     getAll: async (filters: TaskFilters) => {
@@ -21,6 +21,11 @@ export const tasksApi = {
 
     updateStatus: async (taskId: string, status: TaskStatus) => {
         const { data } = await api.patch<ApiResponse<Task>>(`/tasks/${taskId}`, { status });
+        return data.data;
+    },
+
+    create: async (input: CreateTaskInput) => {
+        const { data } = await api.post<ApiResponse<Task>>('/tasks', input);
         return data.data;
     },
 };

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tasksApi } from '@/api/tasks.api';
-import type { TaskFilters, TaskStatus } from '@/types/task';
+import type { TaskFilters, TaskStatus, CreateTaskInput } from '@/types/task';
 import { toast } from 'sonner';
 
 // Keys
@@ -45,6 +45,21 @@ export function useUpdateTaskStatus() {
         },
         onError: () => {
             toast.error('Не удалось обновить статус задачи');
+        },
+    });
+}
+
+export function useCreateTask() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (input: CreateTaskInput) => tasksApi.create(input),
+        onSuccess: () => {
+            toast.success('Задача создана');
+            queryClient.invalidateQueries({ queryKey: taskKeys.all });
+        },
+        onError: () => {
+            toast.error('Не удалось создать задачу');
         },
     });
 }

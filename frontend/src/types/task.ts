@@ -35,3 +35,11 @@ export interface TaskFilters {
     search?: string;
     overdue?: boolean;
 }
+
+export interface CreateTaskInput {
+    patientId: string;
+    type: TaskType;
+    title: string;
+    description?: string;
+    priority?: TaskPriority;
+}
