@@ -1,4 +1,5 @@
-import { PrismaClient, UserRole } from '@prisma/client';
+import P from '@prisma/client';
+const { PrismaClient, UserRole } = P;
 import type { ProgramTemplateRules } from '@/modules/programs/program.types.js';
 import bcrypt from 'bcrypt';
 
