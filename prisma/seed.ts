@@ -303,7 +303,7 @@ async function main() {
         console.log('✅ AI Integration settings created');
     } else {
         await prisma.integrationSettings.update({
-            where: { type: 'ai' },
+            where: { id: existingAISettings.id },
             data: {
                 isEnabled: true,
                 config: {
@@ -315,16 +315,16 @@ async function main() {
             }
         });
         console.log('✅ AI Integration settings updated');
+
+
+        console.log('🏁 Seed completed');
     }
 
-    console.log('🏁 Seed completed');
-}
-
-main()
-    .catch((e) => {
-        console.error(e);
-        process.exit(1);
-    })
-    .finally(async () => {
-        await prisma.$disconnect();
-    });
+    main()
+        .catch((e) => {
+            console.error(e);
+            process.exit(1);
+        })
+        .finally(async () => {
+            await prisma.$disconnect();
+        });
