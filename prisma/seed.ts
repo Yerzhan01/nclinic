@@ -152,7 +152,8 @@ async function main() {
         console.log('✅ Default Program Template updated with new rules');
     }
 
-    // 4. Create Patient Ержан
+    // 4. Create Patient Ержан - fetching template first to link in profile
+    const template = await prisma.programTemplate.findFirst({ where: { name: templateName } });
     const yerzhanPhone = '77713877225';
     const existingYerzhan = await prisma.patient.findUnique({ where: { phone: yerzhanPhone } });
 
@@ -165,11 +166,26 @@ async function main() {
                 timezone: 'Asia/Almaty',
                 clinicId: clinicId,
                 profile: {
-                    age: 30,
-                    gender: 'male',
+                    heightCm: 178,
+                    weightKg: 85.5,
+                    targetWeightKg: 75.0,
+                    activityLevel: 'medium',
                     goals: ['Снижение веса', 'Контроль питания'],
-                    medicalHistory: 'Здоров, без хронических заболеваний',
-                    preferences: 'Предпочитает краткие сообщения, мотивационный стиль общения'
+                    diagnoses: ['Инсулинорезистентность'],
+                    allergies: [],
+                    program: template ? {
+                        templateId: template.id,
+                        name: template.name
+                    } : undefined,
+                    nutritionPlan: {
+                        kcalTarget: 1800,
+                        proteinG: 140,
+                        fatG: 70,
+                        carbsG: 150,
+                        preferences: ['Мясо', 'Овощи', 'Рыба'],
+                        restrictions: ['Сахар', 'Выпечка'],
+                        notes: 'Предпочитает краткие сообщения, мотивационный стиль общения'
+                    }
                 }
             }
         });
@@ -177,23 +193,60 @@ async function main() {
         console.log('✅ Patient Ержан created');
 
         // Assign program to Ержан
-        const template = await prisma.programTemplate.findFirst({ where: { name: templateName } });
         if (template) {
             const startDate = new Date();
             const endDate = new Date(startDate);
             endDate.setDate(endDate.getDate() + template.durationDays);
-            await prisma.programInstance.create({
-                data: {
-                    patientId: yerzhanId,
-                    templateId: template.id,
-                    startDate: startDate,
-                    endDate: endDate,
-                    currentDay: 1,
-                    status: 'ACTIVE'
-                }
+
+            // Check if already assigned
+            const existingProgram = await prisma.programInstance.findFirst({
+                where: { patientId: yerzhanId, status: 'ACTIVE' }
             });
-            console.log('✅ Program assigned to Ержан');
+
+            if (!existingProgram) {
+                await prisma.programInstance.create({
+                    data: {
+                        patientId: yerzhanId,
+                        templateId: template.id,
+                        startDate: startDate,
+                        endDate: endDate,
+                        currentDay: 1,
+                        status: 'ACTIVE'
+                    }
+                });
+                console.log('✅ Program assigned to Ержан');
+            }
         }
+    } else {
+        // Update profile for existing patient to ensure UI fields are populated
+        await prisma.patient.update({
+            where: { id: existingYerzhan.id },
+            data: {
+                profile: {
+                    heightCm: 178,
+                    weightKg: 85.5,
+                    targetWeightKg: 75.0,
+                    activityLevel: 'medium',
+                    goals: ['Снижение веса', 'Контроль питания'],
+                    diagnoses: ['Инсулинорезистентность'],
+                    allergies: [],
+                    program: template ? {
+                        templateId: template.id,
+                        name: template.name
+                    } : undefined,
+                    nutritionPlan: {
+                        kcalTarget: 1800,
+                        proteinG: 140,
+                        fatG: 70,
+                        carbsG: 150,
+                        preferences: ['Мясо', 'Овощи', 'Рыба'],
+                        restrictions: ['Сахар', 'Выпечка'],
+                        notes: 'Предпочитает краткие сообщения, мотивационный стиль общения'
+                    }
+                }
+            }
+        });
+        console.log('✅ Patient Ержан profile updated with correct UI fields');
     }
 
     // 5. Create AI Integration Settings
