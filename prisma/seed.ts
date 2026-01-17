@@ -152,20 +152,116 @@ async function main() {
         console.log('✅ Default Program Template updated with new rules');
     }
 
-    // 3. Create dummy patient for testing
-    const demoPhone = '77010000000';
-    const existingPatient = await prisma.patient.findUnique({ where: { phone: demoPhone } });
+    // 4. Create Patient Ержан
+    const yerzhanPhone = '77713877225';
+    const existingYerzhan = await prisma.patient.findUnique({ where: { phone: yerzhanPhone } });
 
-    if (!existingPatient) {
-        await prisma.patient.create({
+    let yerzhanId = existingYerzhan?.id;
+    if (!existingYerzhan) {
+        const yerzhan = await prisma.patient.create({
             data: {
-                fullName: 'Demo Patient',
-                phone: demoPhone,
+                fullName: 'Ержан',
+                phone: yerzhanPhone,
                 timezone: 'Asia/Almaty',
-                clinicId: clinicId // Assign to default clinic
+                clinicId: clinicId,
+                profile: {
+                    age: 30,
+                    gender: 'male',
+                    goals: ['Снижение веса', 'Контроль питания'],
+                    medicalHistory: 'Здоров, без хронических заболеваний',
+                    preferences: 'Предпочитает краткие сообщения, мотивационный стиль общения'
+                }
             }
         });
-        console.log('✅ Demo Patient created');
+        yerzhanId = yerzhan.id;
+        console.log('✅ Patient Ержан created');
+
+        // Assign program to Ержан
+        const template = await prisma.programTemplate.findFirst({ where: { name: templateName } });
+        if (template) {
+            const startDate = new Date();
+            const endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + template.durationDays);
+            await prisma.programInstance.create({
+                data: {
+                    patientId: yerzhanId,
+                    templateId: template.id,
+                    startDate: startDate,
+                    endDate: endDate,
+                    currentDay: 1,
+                    status: 'ACTIVE'
+                }
+            });
+            console.log('✅ Program assigned to Ержан');
+        }
+    }
+
+    // 5. Create AI Integration Settings
+    const existingAISettings = await prisma.integrationSettings.findUnique({
+        where: { type: 'ai' }
+    });
+
+    const aiPrompt = `Ты — виртуальный ассистент врача-диетолога в клинике N-Clinic. Твоя задача — сопровождать пациентов во время программы снижения веса.
+
+## Твоя роль:
+- Ты помощник врача, НЕ сам врач
+- Ты дружелюбный, поддерживающий, но профессиональный
+- Ты общаешься на "ты" с пациентами
+- Используешь эмодзи умеренно (1-2 на сообщение)
+
+## Твои задачи:
+1. **Напоминать о чекинах** — утренний вес, фото еды, шаги
+2. **Анализировать рацион** — когда пациент присылает фото еды, давай краткий комментарий
+3. **Мотивировать** — хвали за успехи, поддерживай при срывах
+4. **Отвечать на вопросы** — о питании, активности, программе
+
+## Правила ответов:
+- Отвечай КРАТКО (2-4 предложения максимум)
+- Если пациент прислал вес — похвали или поддержи, напомни цель
+- Если пациент прислал фото еды — кратко прокомментируй (хорошо/можно улучшить)
+- Если пациент жалуется — прояви эмпатию, предложи связаться с врачом
+- НЕ назначай лекарства и НЕ ставь диагнозы
+
+## Формат ответов:
+- Используй короткие абзацы
+- Не пиши длинные списки
+- Заканчивай вопросом или призывом к действию
+
+## Примеры:
+Пациент: "78.5"
+Ты: "Отлично! 78.5 кг записал ✅ Ты на правильном пути! Не забудь про 6000 шагов сегодня 👣"
+
+Пациент: "Сорвался вчера на торт"
+Ты: "Бывает, не переживай! Главное — не сдаваться. Сегодня новый день 💪 Что планируешь на обед?"`;
+
+    if (!existingAISettings) {
+        await prisma.integrationSettings.create({
+            data: {
+                type: 'ai',
+                isEnabled: true,
+                config: {
+                    model: 'gpt-4o-mini',
+                    systemPrompt: aiPrompt,
+                    maxTokens: 500,
+                    temperature: 0.7
+                }
+            }
+        });
+        console.log('✅ AI Integration settings created');
+    } else {
+        await prisma.integrationSettings.update({
+            where: { type: 'ai' },
+            data: {
+                isEnabled: true,
+                config: {
+                    model: 'gpt-4o-mini',
+                    systemPrompt: aiPrompt,
+                    maxTokens: 500,
+                    temperature: 0.7
+                }
+            }
+        });
+        console.log('✅ AI Integration settings updated');
     }
 
     console.log('🏁 Seed completed');
