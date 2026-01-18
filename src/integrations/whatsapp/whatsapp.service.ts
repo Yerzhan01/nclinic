@@ -52,7 +52,9 @@ export class WhatsAppService {
         // 2. Try to update settings in Green API (SetSettings)
         try {
             if (config.apiUrl && config.idInstance && config.apiTokenInstance) {
-                const webhookUrl = 'https://api.link-it.tech/api/v1/integrations/whatsapp/webhook';
+                // Use app.link-it.tech because it has a valid SSL certificate
+                // api.link-it.tech has a cert mismatch (CN=app.link-it.tech)
+                const webhookUrl = 'https://app.link-it.tech/api/v1/integrations/whatsapp/webhook';
                 const url = `${config.apiUrl}/waInstance${config.idInstance}/SetSettings/${config.apiTokenInstance}`;
 
                 const payload = {
