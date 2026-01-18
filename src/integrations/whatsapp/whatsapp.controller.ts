@@ -45,7 +45,10 @@ export class WhatsAppController {
 
         // Asynchronous processing - don't block Green API response
         // But for MVP we can await it to ensure at least parsing works
-        await whatsAppService.handleWebhook(body);
+        // Fire and forget - don't block the HTTP response
+        whatsAppService.handleWebhook(body).catch(err => {
+            request.log.error({ err }, 'Background webhook processing failed');
+        });
 
         return reply.send({ status: 'ok' });
     }
