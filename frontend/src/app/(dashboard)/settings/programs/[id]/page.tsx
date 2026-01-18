@@ -103,10 +103,10 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
                     rules,
                 },
             });
-            toast.success("Program saved successfully");
+            toast.success("Программа сохранена успешно");
             setHasChanges(false);
         } catch (error) {
-            toast.error("Failed to save changes");
+            toast.error("Не удалось сохранить изменения");
         }
     };
 
@@ -217,8 +217,8 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
         setIsActivityOpen(true);
     };
 
-    if (isLoading) return <div className="p-8 flex items-center gap-2"><Loader2 className="animate-spin" /> Loading...</div>;
-    if (!program) return <div className="p-8">Program not found</div>;
+    if (isLoading) return <div className="p-8 flex items-center gap-2"><Loader2 className="animate-spin" /> Загрузка...</div>;
+    if (!program) return <div className="p-8">Программа не найдена</div>;
 
     return (
         <div className="space-y-6 pb-20">
@@ -339,7 +339,7 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
                                 <Label>Время суток</Label>
                                 <Select
                                     value={currentActivity.slot}
-                                    onValueChange={(v: any) => setCurrentActivity(prev => ({ ...prev, slot: v }))}
+                                    onValueChange={(v) => setCurrentActivity(prev => ({ ...prev, slot: v as ProgramActivity['slot'] }))}
                                 >
                                     <SelectTrigger>
                                         <SelectValue />
@@ -367,7 +367,7 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
                             <Label>Тип задания</Label>
                             <Select
                                 value={currentActivity.type}
-                                onValueChange={(v: any) => setCurrentActivity(prev => ({ ...prev, type: v }))}
+                                onValueChange={(v) => setCurrentActivity(prev => ({ ...prev, type: v as ProgramActivity['type'] }))}
                             >
                                 <SelectTrigger>
                                     <SelectValue />
@@ -407,7 +407,7 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
                                 <Label>Повторение</Label>
                                 <Select
                                     value={repeatMode}
-                                    onValueChange={(v: any) => setRepeatMode(v)}
+                                    onValueChange={(v) => setRepeatMode(v as typeof repeatMode)}
                                 >
                                     <SelectTrigger>
                                         <SelectValue />

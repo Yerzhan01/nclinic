@@ -184,7 +184,7 @@ export function CheckInCalendar({ patientId, programStartDate }: CheckInCalendar
                                                                             />
                                                                         </div>
                                                                     ) : (
-                                                                        <div className="p-2 bg-muted text-xs">Audio Record</div>
+                                                                        <div className="p-2 bg-muted text-xs">Аудиозапись</div>
                                                                     )}
                                                                 </div>
                                                             ) : (

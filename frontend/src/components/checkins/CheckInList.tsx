@@ -24,12 +24,12 @@ const TypeIcon = ({ type }: { type: string }) => {
 export function CheckInList({ patientId }: CheckInListProps) {
     const { checkIns, isLoading } = useCheckIns(patientId);
 
-    if (isLoading) return <div>Loading...</div>;
+    if (isLoading) return <div>Загрузка...</div>;
 
     return (
         <Card className="h-full max-h-[600px] flex flex-col">
             <CardHeader className="pb-3">
-                <CardTitle className="text-lg font-medium">History</CardTitle>
+                <CardTitle className="text-lg font-medium">История</CardTitle>
             </CardHeader>
             <CardContent className="flex-1 min-h-0">
                 <ScrollArea className="h-full pr-4">
@@ -41,7 +41,7 @@ export function CheckInList({ patientId }: CheckInListProps) {
                                     <div className="flex justify-between items-start">
                                         <span className="font-medium text-sm">{item.type}</span>
                                         <span className="text-xs text-muted-foreground">
-                                            {format(new Date(item.createdAt), 'MMM d, HH:mm')}
+                                            {format(new Date(item.createdAt), 'd MMM, HH:mm')}
                                         </span>
                                     </div>
 
@@ -50,7 +50,7 @@ export function CheckInList({ patientId }: CheckInListProps) {
                                         {item.valueText && <p>{item.valueText}</p>}
                                         {item.valueBool !== null && (
                                             <Badge variant={item.valueBool ? 'default' : 'destructive'} className="text-[10px] h-5">
-                                                {item.valueBool ? 'Yes' : 'No'}
+                                                {item.valueBool ? 'Да' : 'Нет'}
                                             </Badge>
                                         )}
                                     </div>

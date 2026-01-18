@@ -25,7 +25,7 @@ export function EngagementCard({ patientId }: EngagementCardProps) {
 
     let statusColor = 'text-green-600';
     let statusLabel = 'Норма';
-    let progressColor = 'bg-green-600'; // Tailwind class for progress indicator if supported, or inline style
+    const progressColor = 'bg-green-600'; // Tailwind class for progress indicator if supported, or inline style
 
     if (status === 'HIGH_RISK') {
         statusColor = 'text-red-600';

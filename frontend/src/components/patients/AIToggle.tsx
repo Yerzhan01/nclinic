@@ -52,7 +52,7 @@ export function AIToggle({ patientId }: AIToggleProps) {
                             <BotOff className="h-4 w-4" />
                         )}
                         <span className="hidden sm:inline">
-                            {isAIEnabled ? 'AI ON' : 'AI OFF'}
+                            {isAIEnabled ? 'AI ВКЛ' : 'AI ВЫКЛ'}
                         </span>
                     </Button>
                 </TooltipTrigger>

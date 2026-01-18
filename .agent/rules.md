@@ -35,4 +35,13 @@ These rules define strict protocols for the AI Agent to ensure code integrity, r
 - **Router Registration**: When adding new routes, verify you are APPENDING to the list, not replacing the list. Use precise `StartLine`/`EndLine` to target *only* the new insertion point, or read the file first to ensure you have the full context for replacement.
 
 ---
-*These rules are active and must be followed for every session.*
+
+## 6. Safe Deletion & Code Integrity (STRICT) 🛑
+- **Code Removal Protocol**:
+  - When removing code (e.g., duplicate blocks, legacy logic), **ALWAYS** verify the closing braces/parentheses of the surrounding scope.
+  - If unsure about the boundaries of the block to delete, **READ** the file with context first.
+  - **Syntax Check**: After ANY deletion or structural change, assume the syntax might be broken (missing `}`). Verify instantly.
+- **Data & Resource Protection**:
+  - **NEVER** run or suggest `docker compose down -v` (volume removal) without EXPLICIT, capitalized warning and user confirmation.
+  - **Confirmation Required**: Before deleting significant chunks of code (>50 lines) or deleting entire files/databases, ask the user for confirmation.
+

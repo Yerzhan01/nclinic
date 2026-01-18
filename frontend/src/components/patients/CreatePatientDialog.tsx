@@ -191,4 +191,5 @@ export function CreatePatientDialog() {
             </DialogContent>
         </Dialog>
     );
+
 }

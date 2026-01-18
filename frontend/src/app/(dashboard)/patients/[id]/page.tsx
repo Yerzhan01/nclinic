@@ -677,6 +677,21 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Edit Patient Dialog */}
+            <EditPatientDialog
+                patient={patient}
+                open={showEditDialog}
+                onOpenChange={setShowEditDialog}
+            />
+
+            {/* Delete Patient Dialog */}
+            <DeletePatientDialog
+                patientId={patient.id}
+                patientName={patient.fullName}
+                open={showDeleteDialog}
+                onOpenChange={setShowDeleteDialog}
+            />
         </div>
     );
 }

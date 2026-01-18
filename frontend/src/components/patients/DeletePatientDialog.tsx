@@ -8,15 +8,13 @@ import { Loader2, Trash2 } from 'lucide-react';
 import { useDeletePatient } from '@/hooks/usePatients';
 import { Button } from '@/components/ui/button';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 
 interface Props {
     patientId: string;
@@ -42,29 +40,31 @@ export function DeletePatientDialog({ patientId, patientName, open, onOpenChange
     }
 
     return (
-        <AlertDialog open={open} onOpenChange={onOpenChange}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Вы абсолютно уверены?</AlertDialogTitle>
-                    <AlertDialogDescription>
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Вы абсолютно уверены?</DialogTitle>
+                    <DialogDescription>
                         Это действие нельзя отменить. Пациент <strong>{patientName}</strong> будет удален навсегда вместе со всей историей сообщений и прогрессом.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Отмена</AlertDialogCancel>
-                    <AlertDialogAction
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                        Отмена
+                    </Button>
+                    <Button
+                        variant="destructive"
                         onClick={(e) => {
                             e.preventDefault();
                             handleDelete();
                         }}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         disabled={deletePatient.isPending}
                     >
                         {deletePatient.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Удалить
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }

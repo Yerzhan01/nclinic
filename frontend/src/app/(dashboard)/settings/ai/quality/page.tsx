@@ -89,7 +89,7 @@ export default function AIQualityPage() {
                 />
                 <Card className={errorRateStatus === 'destructive' ? 'border-destructive' : ''}>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-medium">Error Rate</CardTitle>
+                        <CardTitle className="text-sm font-medium">Ошибки (Error Rate)</CardTitle>
                         <AlertTriangle className={`h-4 w-4 ${errorRateStatus === 'destructive' ? 'text-destructive' : 'text-muted-foreground'}`} />
                     </CardHeader>
                     <CardContent>

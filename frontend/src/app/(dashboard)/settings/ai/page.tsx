@@ -176,7 +176,7 @@ export default function AISettingsPage() {
                                         </Select>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label>Max Output Tokens</Label>
+                                        <Label>Макс. токенов вывода</Label>
                                         <Input
                                             type="number"
                                             {...register('agent.maxOutputTokens', { valueAsNumber: true })}
@@ -186,7 +186,7 @@ export default function AISettingsPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between">
-                                        <Label>Temperature: {temperature}</Label>
+                                        <Label>Температура: {temperature}</Label>
                                     </div>
                                     <Slider
                                         value={[temperature]}
@@ -220,7 +220,7 @@ export default function AISettingsPage() {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label>Style Guide</Label>
+                                    <Label>Стиль общения (Style Guide)</Label>
                                     <Textarea
                                         {...register('agent.styleGuide')}
                                         rows={4}
@@ -374,7 +374,7 @@ export default function AISettingsPage() {
                                             ))}
                                         </div>
                                         <Input
-                                            placeholder="Add keyword..."
+                                            placeholder="Добавить слово..."
                                             onKeyDown={e => {
                                                 if (e.key === 'Enter') {
                                                     e.preventDefault();
@@ -397,7 +397,7 @@ export default function AISettingsPage() {
                                             ))}
                                         </div>
                                         <Input
-                                            placeholder="Add keyword..."
+                                            placeholder="Добавить слово..."
                                             onKeyDown={e => {
                                                 if (e.key === 'Enter') {
                                                     e.preventDefault();
@@ -420,7 +420,7 @@ export default function AISettingsPage() {
                                             ))}
                                         </div>
                                         <Input
-                                            placeholder="Add keyword..."
+                                            placeholder="Добавить слово..."
                                             onKeyDown={e => {
                                                 if (e.key === 'Enter') {
                                                     e.preventDefault();

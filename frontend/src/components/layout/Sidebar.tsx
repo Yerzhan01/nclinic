@@ -162,7 +162,7 @@ export function Sidebar() {
                         <span className="text-xs font-bold text-primary">A</span>
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">Admin</p>
+                        <p className="text-sm font-medium truncate">Админ</p>
                         <p className="text-xs text-muted-foreground">Администратор</p>
                     </div>
                 </div>

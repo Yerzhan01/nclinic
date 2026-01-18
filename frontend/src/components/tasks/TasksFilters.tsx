@@ -20,7 +20,7 @@ export function TasksFilters({ filters, onChange }: TasksFiltersProps) {
     const update = (key: keyof TaskFilters, value: string | undefined) => {
         const newFilters = { ...filters };
         if (value && value !== 'ALL') {
-            // @ts-ignore
+            // @ts-expect-error - key indexing
             newFilters[key] = value;
         } else {
             delete newFilters[key];

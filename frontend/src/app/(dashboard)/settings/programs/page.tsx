@@ -52,53 +52,52 @@ export default function ProgramsPage() {
             });
             setIsCreateOpen(false);
             setNewProgramName("");
-            toast.success("Program template created");
+            toast.success("Шаблон программы создан");
             router.push(`/settings/programs/${newTemplate.id}`);
         } catch (error) {
-            toast.error("Failed to create template");
+            toast.error("Не удалось создать шаблон");
         }
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm("Are you sure you want to delete this template?")) return;
         try {
             await deleteProgram.mutateAsync(id);
-            toast.success("Template deleted");
+            toast.success("Шаблон удален");
         } catch (error) {
-            toast.error("Failed to delete template (it might be in use)");
+            toast.error("Не удалось удалить шаблон (возможно, он используется)");
         }
     };
 
-    if (isLoading) return <div className="p-8">Loading programs...</div>;
+    if (isLoading) return <div className="p-8">Загрузка программ...</div>;
 
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight">Programs</h2>
-                    <p className="text-muted-foreground">Manage program templates and schedules.</p>
+                    <h2 className="text-3xl font-bold tracking-tight">Программы</h2>
+                    <p className="text-muted-foreground">Управление шаблонами программ и расписанием.</p>
                 </div>
                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                     <DialogTrigger asChild>
                         <Button>
-                            <Plus className="mr-2 h-4 w-4" /> New Template
+                            <Plus className="mr-2 h-4 w-4" /> Новый шаблон
                         </Button>
                     </DialogTrigger>
                     <DialogContent>
                         <DialogHeader>
-                            <DialogTitle>Create New Program</DialogTitle>
+                            <DialogTitle>Создать новую программу</DialogTitle>
                         </DialogHeader>
                         <div className="space-y-4 py-4">
                             <div className="space-y-2">
-                                <Label>Program Name</Label>
+                                <Label>Название программы</Label>
                                 <Input
-                                    placeholder="e.g. Weight Loss Standard"
+                                    placeholder="Например: Снижение веса (Стандарт)"
                                     value={newProgramName}
                                     onChange={(e) => setNewProgramName(e.target.value)}
                                 />
                             </div>
                             <Button onClick={handleCreate} disabled={createProgram.isPending} className="w-full">
-                                {createProgram.isPending ? "Creating..." : "Create & Edit"}
+                                {createProgram.isPending ? "Создание..." : "Создать и настроить"}
                             </Button>
                         </div>
                     </DialogContent>
@@ -107,34 +106,34 @@ export default function ProgramsPage() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Templates</CardTitle>
+                    <CardTitle>Шаблоны</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Name</TableHead>
-                                <TableHead>Duration</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Actions</TableHead>
+                                <TableHead>Название</TableHead>
+                                <TableHead>Длительность</TableHead>
+                                <TableHead>Статус</TableHead>
+                                <TableHead>Действия</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {programs?.map((program) => (
                                 <TableRow key={program.id}>
                                     <TableCell className="font-medium">{program.name}</TableCell>
-                                    <TableCell>{program.durationDays} days</TableCell>
+                                    <TableCell>{program.durationDays} дней</TableCell>
                                     <TableCell>
                                         {program.isActive ? (
-                                            <span className="text-green-600 font-semibold">Active</span>
+                                            <span className="text-green-600 font-semibold">Активен</span>
                                         ) : (
-                                            <span className="text-gray-500">Inactive</span>
+                                            <span className="text-gray-500">Неактивен</span>
                                         )}
                                     </TableCell>
                                     <TableCell className="flex gap-2">
                                         <Link href={`/settings/programs/${program.id}`}>
                                             <Button variant="outline" size="sm">
-                                                <Edit className="h-4 w-4 mr-1" /> Edit
+                                                <Edit className="h-4 w-4 mr-1" /> Ред.
                                             </Button>
                                         </Link>
                                         <Button
@@ -151,7 +150,7 @@ export default function ProgramsPage() {
                             {programs?.length === 0 && (
                                 <TableRow>
                                     <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                                        No programs found. Create one to get started.
+                                        Программы не найдены. Создайте первую программу, чтобы начать.
                                     </TableCell>
                                 </TableRow>
                             )}

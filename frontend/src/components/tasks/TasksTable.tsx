@@ -76,7 +76,7 @@ export function TasksTable({ tasks, isLoading }: TasksTableProps) {
                             <TableCell>
                                 {task.isOverdue ? (
                                     <span className="inline-flex items-center rounded-full border border-destructive bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
-                                        OVERDUE +{task.overdueHours}ч
+                                        ПРОСРОЧЕНО +{task.overdueHours}ч
                                     </span>
                                 ) : (
                                     <span className="inline-flex items-center px-2 py-0.5 text-xs text-muted-foreground">
