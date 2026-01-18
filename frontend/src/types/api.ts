@@ -38,6 +38,7 @@ export interface Patient {
     fullName: string;
     phone: string;
     chatMode: ChatMode;
+    timezone: string;
     chatModeSetAt?: string;
     chatModeSetBy?: string;
     clinicId?: string;
