@@ -107,10 +107,48 @@ export class AIService {
     }
 
     /**
+     * Helper for robust API calls with retry logic (Exponential Backoff)
+     */
+    private async fetchWithRetry(url: string, options: RequestInit, retries = 3): Promise<Response> {
+        let lastError: Error | null = null;
+
+        for (let i = 0; i < retries; i++) {
+            try {
+                const response = await fetch(url, options);
+
+                // If success or client error (400-401), return immediately
+                // We only retry on 429 (Rate Limit) or 5xx (Server Error)
+                if (response.ok || (response.status >= 400 && response.status < 429)) {
+                    return response;
+                }
+
+                if (response.status === 429 || response.status >= 500) {
+                    const errorText = await response.text();
+                    throw new Error(`API Error ${response.status}: ${errorText}`);
+                }
+
+                return response;
+            } catch (error) {
+                lastError = error as Error;
+                const isLastAttempt = i === retries - 1;
+
+                if (!isLastAttempt) {
+                    // Backoff: 1s, 2s, 4s...
+                    const delay = Math.pow(2, i) * 1000;
+                    logger.warn({ attempt: i + 1, error: lastError.message }, `OpenAI call failed, retrying in ${delay}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+
+        throw lastError || new Error('API request failed after retries');
+    }
+
+    /**
      * Test connection to OpenAI
      */
     private async testConnection(config: AIConfig): Promise<void> {
-        const response = await fetch('https://api.openai.com/v1/models', {
+        const response = await this.fetchWithRetry('https://api.openai.com/v1/models', {
             method: 'GET',
             headers: {
                 Authorization: `Bearer ${config.apiKey}`,
@@ -196,7 +234,7 @@ export class AIService {
                 requestBody.max_tokens = agentSettings.maxOutputTokens;
             }
 
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            const response = await this.fetchWithRetry('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -547,7 +585,7 @@ export class AIService {
         `;
 
         try {
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            const response = await this.fetchWithRetry('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -599,7 +637,7 @@ export class AIService {
             formData.append('file', file);
             formData.append('model', 'whisper-1');
 
-            const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+            const response = await this.fetchWithRetry('https://api.openai.com/v1/audio/transcriptions', {
                 method: 'POST',
                 headers: {
                     Authorization: `Bearer ${config.apiKey}`,
@@ -667,7 +705,7 @@ export class AIService {
 }`;
 
         try {
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            const response = await this.fetchWithRetry('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
