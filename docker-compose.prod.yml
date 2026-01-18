@@ -43,6 +43,7 @@ services:
       REDIS_URL: redis://patient-assistant-redis:6379
       JWT_SECRET: ${JWT_SECRET}
       TELEGRAM_ADMIN_BOT_TOKEN: ${TELEGRAM_ADMIN_BOT_TOKEN}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
     depends_on:
       postgres:
         condition: service_healthy
