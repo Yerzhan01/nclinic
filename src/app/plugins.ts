@@ -44,6 +44,12 @@ export async function registerPlugins(app: FastifyInstance): Promise<void> {
         },
     });
 
+    // Rate Limiting (100 req/min)
+    await app.register(import('@fastify/rate-limit'), {
+        max: 100,
+        timeWindow: '1 minute'
+    });
+
     // WebSocket
     await app.register(fastifyWebsocket);
 }
