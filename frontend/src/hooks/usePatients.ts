@@ -77,3 +77,17 @@ export function usePatientTimeline(id: string) {
         refetchInterval: 10000,
     });
 }
+
+export function useDeletePatient() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (id: string) => {
+            const response = await api.delete<ApiResponse<void>>(`/patients/${id}`);
+            return response.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['patients'] });
+        },
+    });
+}

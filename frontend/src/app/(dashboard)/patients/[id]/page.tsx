@@ -47,6 +47,8 @@ import {
     Pause,
     RefreshCw,
     User,
+    Pencil,
+    Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { ChatMode, Slot, CheckInStatus, AlertLevel, TaskPriority, TaskStatus } from '@/types/api';
@@ -56,6 +58,8 @@ import { AIToggle } from '@/components/patients/AIToggle';
 import { PatientTasksCard } from '@/components/patients/PatientTasksCard';
 import { EngagementCard } from '@/components/engagement/EngagementCard';
 import { CheckInCalendar } from '@/components/patients/CheckInCalendar';
+import { EditPatientDialog } from '@/components/patients/EditPatientDialog';
+import { DeletePatientDialog } from '@/components/patients/DeletePatientDialog';
 
 // Badge components
 function ChatModeBadge({ mode }: { mode: ChatMode }) {
@@ -142,6 +146,8 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     const [showTaskDialog, setShowTaskDialog] = useState(false);
     const [taskTitle, setTaskTitle] = useState('');
     const [showAssignDialog, setShowAssignDialog] = useState(false);
+    const [showEditDialog, setShowEditDialog] = useState(false);
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
     const handleToggleChatMode = async () => {
         if (!patient) return;
@@ -285,6 +291,13 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setShowTaskDialog(true)}>
                                 <ClipboardList className="mr-2 h-4 w-4" /> Создать задачу
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
+                                <Pencil className="mr-2 h-4 w-4" /> Редактировать
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} className="text-destructive focus:text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" /> Удалить пациента
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={handlePauseProgram} disabled={!program}>
