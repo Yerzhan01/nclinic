@@ -178,7 +178,7 @@ export class AIService {
     /**
      * Analyze message using OpenAI
      */
-    async analyzeMessage(text: string, patientId: string): Promise<AIAnalysisResult | null> {
+    async analyzeMessage(text: string, patientId: string, context?: string): Promise<AIAnalysisResult | null> {
         const config = await this.getConfig();
 
         if (!config) {
@@ -189,6 +189,7 @@ export class AIService {
         const agentSettings = config.agent ?? DEFAULT_AGENT_SETTINGS;
 
         // Check handoff triggers BEFORE calling OpenAI (fast path)
+        // Only check the USER'S text, not the system-appended context
         const triggers = agentSettings.handoffTriggers ?? DEFAULT_AGENT_SETTINGS.handoffTriggers ?? [];
         if (triggers.length > 0 && this.containsTrigger(text, triggers)) {
             logger.info({ patientId, triggers }, 'Handoff trigger detected, instant handoff');
@@ -221,6 +222,9 @@ export class AIService {
             }
         }
 
+        // Combine text with context for the LLM (if present)
+        const fullContent = context ? `${text}\n\n[Context]: ${context}` : text;
+
         try {
             const requestBody: Record<string, unknown> = {
                 model: config.model,
@@ -228,7 +232,7 @@ export class AIService {
                 messages: [
                     { role: 'system', content: prompt },
                     ...conversationHistory, // Include chat history
-                    { role: 'user', content: text },
+                    { role: 'user', content: fullContent },
                 ],
                 response_format: { type: 'json_object' },
             };

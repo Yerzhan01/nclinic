@@ -82,13 +82,13 @@ export class MessageService {
 
         // Vision API: Analyze image if present
         let imageAnalysis = null;
+        let analysisContext = ''; // Separate context for AI
+
         if (mediaUrl && input.mediaType === 'image') {
             logger.info({ mediaUrl, patientId: patient.id }, 'Analyzing image with Vision API');
             imageAnalysis = await aiService.analyzeImage(mediaUrl, patient.id);
 
             if (imageAnalysis) {
-                let analysisContext = '';
-
                 // Format detailed response based on image type
                 if (imageAnalysis.imageType === 'food' && imageAnalysis.foods && imageAnalysis.foods.length > 0) {
                     // Food photo: Show products and calories
@@ -116,7 +116,9 @@ export class MessageService {
                         `[Анализ фото: ${imageAnalysis.imageType}, ${imageAnalysis.description || ''}]`;
                 }
 
-                text = (text ? text + '\n' : '') + `📷 ${analysisContext}`;
+                // Append camera icon for context clearly
+                analysisContext = `📷 ${analysisContext}`;
+
                 logger.info({ imageType: imageAnalysis.imageType, totalCalories: imageAnalysis.totalCalories }, 'Image analysis completed');
             }
         }
@@ -136,7 +138,7 @@ export class MessageService {
                 linkedCheckInId = await programService.createCheckIn(
                     patient.id,
                     candidateActivity.type,
-                    text || '[Media]',
+                    (text || '[Media]') + (analysisContext ? `\n${analysisContext}` : ''), // Include analysis in check-in
                     'PATIENT'
                 );
                 logger.info({ linkedCheckInId, type: candidateActivity.type }, 'Auto-linked media to check-in');
@@ -168,18 +170,22 @@ export class MessageService {
         }
 
         // AI Analysis / Buffering
-        if (text && patient.chatMode === ChatMode.AI && !patient.aiPaused) {
+        // Pass text AND analysisContext separately
+        if ((text || analysisContext) && patient.chatMode === ChatMode.AI && !patient.aiPaused) {
             const config = await aiService.getConfig();
             const bufferSeconds = config?.messageBufferSeconds ?? 10;
 
+            const fullContent = text ? (text + (analysisContext ? `\n${analysisContext}` : '')) : analysisContext;
+
             if (bufferSeconds > 0) {
-                // Buffer Mode
-                await redis.rpush(`patient:${patient.id}:buffer`, text);
+                // Buffer Mode - for now we just push text. 
+                // Context handling in buffer mode is complex, falling back to full text push for buffer
+                await redis.rpush(`patient:${patient.id}:buffer`, fullContent);
                 await scheduleAIAnalysis(patient.id, bufferSeconds);
                 logger.info({ patientId: patient.id, bufferSeconds }, 'Message buffered for AI analysis');
             } else {
-                // Instant Mode
-                await this.processAIAnalysis(patient.id, patient.phone, text, message.id);
+                // Instant Mode - Pass separated context
+                await this.processAIAnalysis(patient.id, patient.phone, text || '[Media]', message.id, analysisContext);
             }
         }
 
@@ -341,10 +347,12 @@ export class MessageService {
         patientId: string,
         phone: string,
         text: string,
-        messageId: string
+        messageId: string,
+        context?: string // New separate context
     ): Promise<void> {
         try {
-            const analysis = await aiService.analyzeMessage(text, patientId);
+            // Pass context separated so trigger check only runs on 'text'
+            const analysis = await aiService.analyzeMessage(text, patientId, context);
 
             if (!analysis) {
                 // AI not configured or error - skip
