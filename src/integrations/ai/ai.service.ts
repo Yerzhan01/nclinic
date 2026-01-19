@@ -25,6 +25,10 @@ export class AIService {
         }
 
         const config = settings.config as unknown as AIConfig;
+        // Inject env var if key is missing in DB
+        if (!config.apiKey && process.env.OPENAI_API_KEY) {
+            config.apiKey = process.env.OPENAI_API_KEY;
+        }
         return config;
     }
 
@@ -59,7 +63,7 @@ export class AIService {
     async updateSettings(partial: Partial<AIConfig>): Promise<AIConfig> {
         const current = await this.getConfig();
         const merged: AIConfig = {
-            apiKey: partial.apiKey ?? current?.apiKey ?? '',
+            apiKey: partial.apiKey ?? current?.apiKey ?? process.env.OPENAI_API_KEY ?? '',
             model: partial.model ?? current?.model ?? 'gpt-4o-mini',
             temperature: partial.temperature ?? current?.temperature,
             messageBufferSeconds: partial.messageBufferSeconds ?? current?.messageBufferSeconds ?? 10,
