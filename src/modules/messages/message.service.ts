@@ -12,6 +12,7 @@ import { programService } from '@/modules/programs/program.service.js';
 import { aiSummaryService } from '@/integrations/ai/ai.summary.service.js';
 import { aiQualityService } from '@/integrations/ai/ai.quality.service.js';
 import { aiABTestService } from '@/integrations/ai/ai.ab-test.service.js';
+import { isAiCommand, parseAiCommand } from '@/common/utils/aiCommand.utils.js';
 
 export class MessageService {
     /**
@@ -458,6 +459,24 @@ export class MessageService {
                 createdAt: new Date(timestamp * 1000), // Use original timestamp
             },
         });
+
+        // Check for AI commands (e.g. "#ai stop") sent from mobile
+        if (text) {
+            const config = await aiService.getConfig();
+            const commandSettings = config?.agent?.commands;
+
+            if (isAiCommand(text, commandSettings?.prefix)) {
+                const { action } = parseAiCommand(text, commandSettings);
+
+                if (action === 'pause') {
+                    await aiService.togglePatientAI(patient.id, true, 'manager_mobile', text);
+                    logger.info({ patientId: patient.id, text }, 'AI paused via mobile command');
+                } else if (action === 'resume') {
+                    await aiService.togglePatientAI(patient.id, false, 'manager_mobile', text);
+                    logger.info({ patientId: patient.id, text }, 'AI resumed via mobile command');
+                }
+            }
+        }
 
         const messageDto = {
             id: message.id,
