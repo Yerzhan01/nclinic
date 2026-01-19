@@ -78,16 +78,8 @@ export class MessageController {
         try {
             const body = request.body as GreenApiWebhookBody;
 
-            // Parse the webhook
-            const parsed = whatsAppService.parseIncomingWebhook(body);
-
-            if (!parsed) {
-                // Not an incoming message (status update, etc.) - just acknowledge
-                return reply.send({ success: true });
-            }
-
-            // Save the inbound message
-            await messageService.saveInboundMessage(parsed);
+            // Delegate webhook processing to service (handles incoming messages, outgoing messages, status updates)
+            await whatsAppService.handleWebhook(body);
 
             // Always return 200 for Green API
             return reply.send({ success: true });
