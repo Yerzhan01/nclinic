@@ -416,6 +416,72 @@ export class MessageService {
     }
 
     /**
+     * Save synced message (sent from mobile)
+     */
+    async saveSyncedMessage(input: SaveInboundMessageInput): Promise<MessageDto | null> {
+        let { phone, text, mediaUrl, whatsappMessageId, timestamp } = input;
+
+        // Skip if message with this ID already exists
+        const existing = await prisma.message.findFirst({
+            where: { whatsappMessageId }
+        });
+        if (existing) return null;
+
+        // Normalize phone
+        const normalizedPhone = this.normalizePhone(phone);
+        const patient = await prisma.patient.findFirst({
+            where: {
+                OR: [
+                    { phone: normalizedPhone },
+                    { phone: '+' + normalizedPhone }
+                ]
+            },
+        });
+
+        if (!patient) {
+            // logger.warn({ phone }, 'Synced message for unknown phone, ignoring');
+            return null;
+        }
+
+        // Create message
+        const message = await prisma.message.create({
+            data: {
+                patientId: patient.id,
+                direction: MessageDirection.OUTBOUND,
+                sender: MessageSender.STAFF, // Assume generic staff for mobile sends
+                content: text || (mediaUrl ? '[Медиа]' : null),
+                mediaUrl: mediaUrl || null,
+                // @ts-ignore
+                mediaType: input.mediaType || null,
+                whatsappMessageId,
+                deliveryStatus: 'SENT', // It's already sent on phone
+                createdAt: new Date(timestamp * 1000), // Use original timestamp
+            },
+        });
+
+        const messageDto = {
+            id: message.id,
+            patientId: message.patientId,
+            direction: message.direction,
+            sender: message.sender,
+            content: message.content,
+            mediaUrl: message.mediaUrl,
+            // @ts-ignore
+            mediaType: message.mediaType,
+            linkedCheckInId: message.linkedCheckInId,
+            createdAt: message.createdAt,
+        };
+
+        // Broadcast so it appears on UI
+        webSocketService.broadcast('NEW_MESSAGE', messageDto);
+
+        // Update summary so AI knows about this context
+        await aiSummaryService.checkAndUpdateSummary(patient.id);
+
+        return messageDto;
+    }
+
+    /**
      * Get messages for a patient
      */
     async getMessages(patientId: string, limit = 100): Promise<MessageDto[]> {

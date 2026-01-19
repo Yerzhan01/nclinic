@@ -203,7 +203,24 @@ export class WhatsAppService {
             return;
         }
 
-        const parsed = this.parseIncomingWebhook(body);
+        // Handle outgoing messages (sent from phone)
+        if (body.typeWebhook === 'outgoingMessageReceived' || body.typeWebhook === 'outgoingAPIMessageReceived') {
+            const parsed = this.parseWebhook(body);
+            if (parsed) {
+                await messageService.saveSyncedMessage({
+                    phone: parsed.phone,
+                    text: parsed.text,
+                    mediaUrl: parsed.mediaUrl,
+                    mediaType: parsed.mediaType,
+                    whatsappMessageId: parsed.whatsappMessageId,
+                    timestamp: parsed.timestamp,
+                });
+                logger.info({ messageId: parsed.whatsappMessageId }, 'Synced outgoing message from phone');
+            }
+            return;
+        }
+
+        const parsed = this.parseWebhook(body);
         if (!parsed) {
             logger.info({ type: body?.typeWebhook }, 'Webhook ignored (not incoming message or invalid)');
             return;
@@ -225,11 +242,11 @@ export class WhatsAppService {
     }
 
     /**
-     * Parse incoming webhook from Green API
+     * Parse webhook from Green API (Incoming or Outgoing)
      */
-    parseIncomingWebhook(body: GreenApiWebhookBody): ParsedInboundMessage | null {
-        // Only process incoming messages
-        if (body.typeWebhook !== 'incomingMessageReceived') {
+    parseWebhook(body: GreenApiWebhookBody): ParsedInboundMessage | null {
+        // Accept both incoming and outgoing messages
+        if (!['incomingMessageReceived', 'outgoingMessageReceived', 'outgoingAPIMessageReceived'].includes(body.typeWebhook)) {
             return null;
         }
 
@@ -239,8 +256,15 @@ export class WhatsAppService {
 
         const { senderData, messageData, idMessage, timestamp } = body;
 
-        // Extract phone from sender (remove @c.us suffix)
-        const phone = this.extractPhone(senderData.sender);
+        // Extract phone number
+        // For INCOMING: senderData.sender is the patient
+        // For OUTGOING: senderData.chatId is the patient
+        let rawPhone = senderData.sender;
+        if (body.typeWebhook === 'outgoingMessageReceived' || body.typeWebhook === 'outgoingAPIMessageReceived') {
+            rawPhone = senderData.chatId;
+        }
+
+        const phone = this.extractPhone(rawPhone);
 
         let text: string | undefined;
         let mediaUrl: string | undefined;
