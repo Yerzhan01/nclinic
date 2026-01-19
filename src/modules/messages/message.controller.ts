@@ -26,9 +26,12 @@ export class MessageController {
         const { patientId } = patientIdParamSchema.parse(request.params);
         const { text } = sendMessageSchema.parse(request.body);
 
+        const config = await aiService.getConfig();
+        const commandSettings = config?.agent?.commands;
+
         // Check for AI commands (#ai off, #ai on, #ai status)
-        if (isAiCommand(text)) {
-            const { action } = parseAiCommand(text);
+        if (isAiCommand(text, commandSettings?.prefix)) {
+            const { action } = parseAiCommand(text, commandSettings);
 
             if (action === 'pause') {
                 await aiService.togglePatientAI(patientId, true, undefined, text);
