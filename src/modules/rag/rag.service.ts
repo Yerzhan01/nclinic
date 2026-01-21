@@ -121,10 +121,8 @@ export class RagService {
         });
     }
 
-    // ==================== Search ====================
-
     /**
-     * Simple ILIKE search across documents
+     * Improved search: splits query into words and finds documents matching ANY word
      * Returns topK results with snippets
      */
     async search(query: string, topK: number = 5, maxChars: number = 2000): Promise<SearchResult[]> {
@@ -132,14 +130,29 @@ export class RagService {
             return [];
         }
 
+        // Split query into meaningful words (3+ chars, filter stop words)
+        const stopWords = ['для', 'что', 'как', 'это', 'при', 'или', 'если', 'чем'];
+        const words = query
+            .toLowerCase()
+            .split(/\s+/)
+            .filter(w => w.length >= 3 && !stopWords.includes(w));
+
+        if (words.length === 0) {
+            // Fallback to original query if no meaningful words
+            words.push(query.trim());
+        }
+
+        // Build OR conditions for each word
+        const orConditions = words.flatMap(word => [
+            { title: { contains: word, mode: 'insensitive' as const } },
+            { content: { contains: word, mode: 'insensitive' as const } },
+        ]);
+
         const documents = await prisma.ragDocument.findMany({
             where: {
                 enabled: true,
                 source: { enabled: true },
-                OR: [
-                    { title: { contains: query, mode: 'insensitive' } },
-                    { content: { contains: query, mode: 'insensitive' } },
-                ]
+                OR: orConditions
             },
             take: topK,
             include: {

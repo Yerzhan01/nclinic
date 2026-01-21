@@ -220,17 +220,32 @@ function DocumentsList({ sourceId }: { sourceId: string }) {
                                 <CardTitle className="text-sm font-medium leading-none truncate pr-4" title={doc.title}>
                                     {doc.title}
                                 </CardTitle>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 opacity-0 group-hover:opacity-100 -mr-2"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (confirm('Удалить документ?')) deleteDoc.mutate({ id: doc.id, sourceId });
-                                    }}
-                                >
-                                    <Trash2 className="h-3 w-3 text-destructive" />
-                                </Button>
+                                <div className="flex items-center gap-1">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setEditingDoc(doc);
+                                        }}
+                                        title="Редактировать"
+                                    >
+                                        <FileText className="h-3 w-3" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (confirm('Удалить документ?')) deleteDoc.mutate({ id: doc.id, sourceId });
+                                        }}
+                                        title="Удалить"
+                                    >
+                                        <Trash2 className="h-3 w-3 text-destructive" />
+                                    </Button>
+                                </div>
                             </div>
                             <CardDescription className="text-xs truncate">
                                 {doc.content.substring(0, 100)}...
@@ -269,18 +284,18 @@ function CreateDocumentDialog({ sourceId }: { sourceId: string }) {
             <DialogTrigger asChild>
                 <Button size="sm" className="gap-2"><Plus className="h-4 w-4" /> Добавить документ</Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Новый документ</DialogTitle>
                 </DialogHeader>
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 flex-1 overflow-y-auto">
                     <div className="space-y-2">
                         <Label>Заголовок</Label>
                         <Input {...register('title')} required placeholder="Вопрос или тема" />
                     </div>
                     <div className="space-y-2">
                         <Label>Содержание</Label>
-                        <Textarea {...register('content')} required rows={10} placeholder="Текст ответа или статьи..." />
+                        <Textarea {...register('content')} required rows={10} placeholder="Текст ответа или статьи..." className="min-h-[200px] max-h-[40vh]" />
                     </div>
                     <Button type="submit" disabled={createDoc.isPending} className="w-full">Сохранить</Button>
                 </form>
