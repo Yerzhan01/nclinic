@@ -38,7 +38,7 @@ export default function DashboardPage() {
                         <Sparkles className="h-5 w-5 text-yellow-300" />
                         <span className="text-sm font-medium tracking-wide uppercase">Панель управления</span>
                     </div>
-                    <h1 className="text-4xl font-bold mb-4 tracking-tight">Добро пожаловать в N-Clinic AI</h1>
+                    <h1 className="text-4xl font-bold mb-4 tracking-tight">Добро пожаловать в NEO CLINIC AI</h1>
                     <p className="max-w-xl text-indigo-100 text-lg">
                         Система сопровождения работает штатно. AI-ассистенты активны и мониторят состояние пациентов в реальном времени.
                     </p>

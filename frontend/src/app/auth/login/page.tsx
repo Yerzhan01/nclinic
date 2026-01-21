@@ -54,7 +54,7 @@ export default function LoginPage() {
                             <span className="text-primary-foreground font-bold text-xl">NC</span>
                         </div>
                     </div>
-                    <CardTitle>N-Clinic</CardTitle>
+                    <CardTitle>NEO CLINIC</CardTitle>
                     <CardDescription>Система сопровождения пациентов</CardDescription>
                 </CardHeader>
                 <CardContent>

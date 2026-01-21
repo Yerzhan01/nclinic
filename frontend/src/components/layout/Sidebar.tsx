@@ -86,11 +86,9 @@ export function Sidebar() {
             {/* Logo Header */}
             <div className="flex h-16 items-center border-b px-6 bg-gradient-to-r from-primary/10 to-primary/5">
                 <Link href="/" className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg shadow-primary/20">
-                        <span className="text-primary-foreground font-bold text-lg">NC</span>
-                    </div>
+                    <img src="/logo.png" alt="NEO CLINIC" className="h-10 w-auto" />
                     <div>
-                        <span className="font-bold text-lg block leading-tight">N-Clinic</span>
+                        <span className="font-bold text-lg block leading-tight">NEO CLINIC</span>
                         <span className="text-xs text-muted-foreground">Система сопровождения</span>
                     </div>
                 </Link>

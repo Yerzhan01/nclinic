@@ -3,7 +3,7 @@ import './globals.css';
 import { Providers } from '@/components/providers';
 
 export const metadata: Metadata = {
-  title: 'N-Clinic — Система сопровождения пациентов',
+  title: 'NEO CLINIC — Система сопровождения пациентов',
   description: 'Система трекинга и сопровождения пациентов',
 };
 
