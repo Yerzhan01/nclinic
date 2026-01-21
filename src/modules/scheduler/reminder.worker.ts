@@ -43,6 +43,9 @@ export const reminderWorker = createWorker(
 
                 // 3. Retention Logic
                 await checkRetentionRisks();
+
+                // 4. Missed Reminder Detection (Creates Tasks + Alerts)
+                await checkMissedReminders();
             }
 
             return { success: true };
@@ -233,5 +236,90 @@ async function checkRetentionRisks() {
         }
     } catch (error) {
         logger.error({ error }, 'Error in checkRetentionRisks');
+    }
+}
+
+// Missed Reminder Detection: Create Tasks + Alerts for unresponsive patients
+async function checkMissedReminders() {
+    try {
+        const RESPONSE_WINDOW_HOURS = 4;
+        const windowStart = new Date(Date.now() - RESPONSE_WINDOW_HOURS * 60 * 60 * 1000);
+        const now = new Date();
+        const startOfDay = new Date(now);
+        startOfDay.setHours(0, 0, 0, 0);
+
+        // Find SYSTEM messages (reminders) sent > 4 hours ago TODAY
+        const unrespondedReminders = await prisma.message.findMany({
+            where: {
+                sender: 'SYSTEM',
+                direction: 'OUTBOUND',
+                createdAt: {
+                    gte: startOfDay,
+                    lte: windowStart // Sent more than 4 hours ago
+                }
+            },
+            include: {
+                patient: {
+                    select: { id: true, fullName: true, aiPaused: true }
+                }
+            }
+        });
+
+        // Group by patient
+        const patientReminders = new Map<string, { patient: any; reminder: any }>();
+        for (const msg of unrespondedReminders) {
+            if (!patientReminders.has(msg.patientId)) {
+                patientReminders.set(msg.patientId, { patient: msg.patient, reminder: msg });
+            }
+        }
+
+        for (const [patientId, { patient, reminder }] of patientReminders) {
+            if (patient.aiPaused) continue; // Skip paused patients
+
+            // Check if patient responded after the reminder
+            const patientResponse = await prisma.message.findFirst({
+                where: {
+                    patientId,
+                    sender: 'PATIENT',
+                    direction: 'INBOUND',
+                    createdAt: { gt: reminder.createdAt }
+                }
+            });
+
+            if (patientResponse) continue; // Patient responded, skip
+
+            // Check if we already created a MISSED_CHECKIN task today
+            const existingTask = await prisma.task.findFirst({
+                where: {
+                    patientId,
+                    type: TaskType.MISSED_CHECKIN,
+                    status: TaskStatus.OPEN,
+                    createdAt: { gte: startOfDay }
+                }
+            });
+
+            if (existingTask) continue; // Already escalated today
+
+            // Create MISSED_CHECKIN Task
+            await prisma.task.create({
+                data: {
+                    patientId,
+                    type: TaskType.MISSED_CHECKIN,
+                    priority: TaskPriority.MEDIUM,
+                    title: `⚠️ Нет ответа: ${patient.fullName}`,
+                    description: `Пациент не ответил на напоминание более ${RESPONSE_WINDOW_HOURS} часов. Последнее напоминание: "${reminder.content?.slice(0, 50)}..."`,
+                    source: TaskSource.SYSTEM,
+                    status: TaskStatus.OPEN,
+                    meta: {
+                        reminderMessageId: reminder.id,
+                        reminderSentAt: reminder.createdAt
+                    }
+                }
+            });
+
+            logger.warn({ patientId, patientName: patient.fullName }, 'Created MISSED_CHECKIN task - patient unresponsive');
+        }
+    } catch (error) {
+        logger.error({ error }, 'Error in checkMissedReminders');
     }
 }
