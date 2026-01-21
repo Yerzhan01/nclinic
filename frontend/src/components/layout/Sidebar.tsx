@@ -87,10 +87,7 @@ export function Sidebar() {
             <div className="flex h-16 items-center border-b px-6 bg-gradient-to-r from-primary/10 to-primary/5">
                 <Link href="/" className="flex items-center gap-3">
                     <img src="/logo.png" alt="NEO CLINIC" className="h-10 w-auto" />
-                    <div>
-                        <span className="font-bold text-lg block leading-tight">NEO CLINIC</span>
-                        <span className="text-xs text-muted-foreground">Система сопровождения</span>
-                    </div>
+                    <span className="text-xs text-muted-foreground">Система<br />сопровождения</span>
                 </Link>
             </div>
 
