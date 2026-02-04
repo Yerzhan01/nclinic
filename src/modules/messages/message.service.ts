@@ -131,23 +131,27 @@ export class MessageService {
         let linkedCheckInId: string | null = null;
 
         // Check for pending activity
-        const candidateActivity = await programService.findCandidateActivity(patient.id);
+        try {
+            const candidateActivity = await programService.findCandidateActivity(patient.id);
 
-        if (candidateActivity) {
-            // 1. Photos/Audio: Always trust media as proof
-            if (mediaUrl) {
-                linkedCheckInId = await programService.createCheckIn(
-                    patient.id,
-                    candidateActivity.type,
-                    (text || '[Media]') + (analysisContext ? `\n${analysisContext}` : ''), // Include analysis in check-in
-                    'PATIENT'
-                );
-                logger.info({ linkedCheckInId, type: candidateActivity.type }, 'Auto-linked media to check-in');
+            if (candidateActivity) {
+                // 1. Photos/Audio: Always trust media as proof
+                if (mediaUrl) {
+                    linkedCheckInId = await programService.createCheckIn(
+                        patient.id,
+                        candidateActivity.type,
+                        (text || '[Media]') + (analysisContext ? `\n${analysisContext}` : ''), // Include analysis in check-in
+                        'PATIENT'
+                    );
+                    logger.info({ linkedCheckInId, type: candidateActivity.type }, 'Auto-linked media to check-in');
+                }
+                // 2. Text: Wait for AI validation (handled in processAnalysisResult)
+                else {
+                    logger.info({ type: candidateActivity.type }, 'Candidate check-in found, awaiting AI validation');
+                }
             }
-            // 2. Text: Wait for AI validation (handled in processAnalysisResult)
-            else {
-                logger.info({ type: candidateActivity.type }, 'Candidate check-in found, awaiting AI validation');
-            }
+        } catch (error) {
+            logger.warn({ error, patientId: patient.id }, 'Failed to link check-in (Active Program missing?) - proceeding to save message');
         }
 
 

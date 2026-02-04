@@ -44,9 +44,9 @@ export async function registerPlugins(app: FastifyInstance): Promise<void> {
         },
     });
 
-    // Rate Limiting (100 req/min)
+    // Rate Limiting (1000 req/min)
     await app.register(import('@fastify/rate-limit'), {
-        max: 100,
+        max: 1000,
         timeWindow: '1 minute'
     });
 
