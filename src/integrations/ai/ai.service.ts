@@ -205,15 +205,18 @@ export class AIService {
         // Fetch recent messages for prompt builder
         const recentMessages = await prisma.message.findMany({
             where: { patientId },
-            orderBy: { createdAt: 'asc' }, // History order
-            take: 20
+            orderBy: { createdAt: 'desc' }, // Fetch NEWEST first
+            take: 50 // Increase context window
         });
+
+        // Reverse to chronological order (Oldest -> Newest) for the LLM
+        recentMessages.reverse();
 
         const { prompt, variantId } = await aiPromptBuilder.buildPrompt(patientId, recentMessages);
 
-        // Build conversation history for context (last 10 messages)
+        // Build conversation history for context (last 20 messages)
         const conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
-        const historyMessages = recentMessages.slice(-20); // Last 20 messages
+        const historyMessages = recentMessages.slice(-20); // Last 20 messages from the NEWEST batch
 
         for (const msg of historyMessages) {
             if (msg.content) {
