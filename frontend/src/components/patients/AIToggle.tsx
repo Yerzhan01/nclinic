@@ -39,7 +39,7 @@ export function AIToggle({ patientId }: AIToggleProps) {
                     <div
                         onClick={!toggleAI.isPending ? handleToggle : undefined}
                         className={cn(
-                            "flex items-center gap-2 px-3 py-1.5 rounded-full cursor-pointer transition-all duration-300 border select-none",
+                            "flex items-center gap-2 px-3 py-1.5 rounded-full cursor-pointer transition-all duration-300 border select-none w-fit",
                             isAIEnabled
                                 ? "bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
                                 : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100",
