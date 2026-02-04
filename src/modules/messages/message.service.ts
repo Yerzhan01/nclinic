@@ -496,12 +496,6 @@ export class MessageService {
                 if (action === 'pause') {
                     await aiService.togglePatientAI(patient.id, true, 'manager_mobile', text);
                     logger.info({ patientId: patient.id, text }, 'AI paused via mobile command');
-
-                    // Send auto-reply if configured
-                    const stopResponse = commandSettings?.stopResponse || 'AI ассистент отключен. Дальнейшие ответы будут от живого оператора.';
-                    if (stopResponse) {
-                        await this.sendSystemMessage(patient.id, stopResponse);
-                    }
                 } else if (action === 'resume') {
                     await aiService.togglePatientAI(patient.id, false, 'manager_mobile', text);
                     logger.info({ patientId: patient.id, text }, 'AI resumed via mobile command');

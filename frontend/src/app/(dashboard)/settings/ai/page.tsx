@@ -70,7 +70,6 @@ export default function AISettingsPage() {
             setPauseKeywords(settings.agent?.commands?.pauseKeywords ?? []);
             setResumeKeywords(settings.agent?.commands?.resumeKeywords ?? []);
             setStatusKeywords(settings.agent?.commands?.statusKeywords ?? []);
-            setValue('agent.commands.stopResponse', settings.agent?.commands?.stopResponse);
         }
     }, [settings, setValue]);
 
@@ -85,7 +84,6 @@ export default function AISettingsPage() {
                     forbiddenPhrases,
                     commands: {
                         prefix: data.agent?.commands?.prefix,
-                        stopResponse: data.agent?.commands?.stopResponse,
                         pauseKeywords,
                         resumeKeywords,
                         statusKeywords
@@ -448,18 +446,6 @@ export default function AISettingsPage() {
                                         />
                                     </div>
                                 </div>
-                                <div className="space-y-2 col-span-3">
-                                    <Label>Ответ при остановке (Stop Response)</Label>
-                                    <p className="text-xs text-muted-foreground">
-                                        Сообщение, которое будет отправлено пациенту при отключении AI через команду
-                                    </p>
-                                    <Textarea
-                                        {...register('agent.commands.stopResponse')}
-                                        placeholder="AI ассистент отключен. Дальнейшие ответы будут от живого оператора."
-                                        rows={2}
-                                    />
-                                </div>
-
                             </CardContent>
                         </Card>
                     </TabsContent>
