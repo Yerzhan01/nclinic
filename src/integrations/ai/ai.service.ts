@@ -190,16 +190,16 @@ export class AIService {
 
         // Check handoff triggers BEFORE calling OpenAI (fast path)
         // Only check the USER'S text, not the system-appended context
+        // Check handoff triggers BEFORE calling OpenAI (fast path)
+        // Only check the USER'S text, not the system-appended context
         const triggers = agentSettings.handoffTriggers ?? DEFAULT_AGENT_SETTINGS.handoffTriggers ?? [];
+        let forceHandoff = false;
+
         if (triggers.length > 0 && this.containsTrigger(text, triggers)) {
-            logger.info({ patientId, triggers }, 'Handoff trigger detected, instant handoff');
-            return {
-                sentiment: 'neutral',
-                riskLevel: 'HIGH',
-                summary: 'Обнаружены стоп-слова/тревожные жалобы',
-                shouldReply: false,
-                handoffRequired: true,
-            };
+            logger.info({ patientId, triggers }, 'Handoff trigger detected, forcing handoff');
+            forceHandoff = true;
+            // We NO LONGER return early. We let the AI generate a polite "I'm passing this to a doctor" reply.
+            // The prompt will handle the wording.
         }
 
         // Fetch recent messages for prompt builder
@@ -286,6 +286,13 @@ export class AIService {
                     riskLevel: 'MEDIUM',
                     suggestedReply: undefined,
                 };
+            }
+
+            // Apply forced handoff from triggers
+            if (forceHandoff) {
+                analysis.handoffRequired = true;
+                analysis.riskLevel = (analysis.riskLevel === 'CRITICAL') ? 'CRITICAL' : 'HIGH';
+                analysis.summary = `[TRIAGE] ${analysis.summary}`;
             }
 
             // Post-process suggestedReply
