@@ -91,26 +91,20 @@ function buildTimeContext(): string {
     const hour = almatyTime.getUTCHours();
 
     let timeOfDay: string;
-    let greeting: string;
-
     if (hour >= 5 && hour < 12) {
         timeOfDay = 'утро';
-        greeting = 'Доброе утро';
     } else if (hour >= 12 && hour < 18) {
         timeOfDay = 'день';
-        greeting = 'Добрый день';
     } else if (hour >= 18 && hour < 22) {
         timeOfDay = 'вечер';
-        greeting = 'Добрый вечер';
     } else {
         timeOfDay = 'ночь';
-        greeting = 'Доброй ночи';
     }
 
     const days = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];
     const dayOfWeek = days[almatyTime.getUTCDay()];
 
-    return `Сейчас ${timeOfDay} (${dayOfWeek}). Приветствие: "${greeting}". Учитывай время суток в тоне ответа.`;
+    return `Сейчас ${timeOfDay} (${dayOfWeek}). Учитывай время суток в тоне ответа.`;
 }
 
 interface PromptBuildResult {
