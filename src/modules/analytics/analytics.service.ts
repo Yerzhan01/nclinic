@@ -246,6 +246,79 @@ export class AnalyticsService {
         return problematic;
     }
 
+    /**
+     * Get AI Quality Analytics
+     */
+    async getAIQualityAnalytics(filters: AnalyticsFilters) {
+        const dateFilter = this.getDateFilter(filters);
+        const { from, to } = filters;
+
+        // 1. Total AI Messages in period
+        // We count messages where sender=AI
+        const totalAIMessages = await prisma.message.count({
+            where: {
+                sender: 'AI',
+                createdAt: dateFilter
+            }
+        });
+
+        // 2. Error Logs (AIQualityLog)
+        const totalErrors = await prisma.aIQualityLog.count({
+            where: { createdAt: dateFilter }
+        });
+
+        // 3. Error Breakdown by Type
+        const errorsByType = await prisma.aIQualityLog.groupBy({
+            by: ['errorType'],
+            where: { createdAt: dateFilter },
+            _count: { id: true }
+        });
+
+        // 4. Handoffs (handoff triggers)
+        // We can count AIQualityLog with type HANDOFF_REQUEST or check alerts
+        // Let's rely on AIQualityLog for now if it's being populated correctly for handoffs
+        // Or check messages with handoffRequired=true (requires parsing or specific flag if we had one)
+        // Let's us AIQualityLog entries for simplicity as planned.
+        const handoffCount = await prisma.aIQualityLog.count({
+            where: {
+                errorType: 'HANDOFF_REQUEST',
+                createdAt: dateFilter
+            }
+        });
+
+        // 5. Recent Logs
+        const recentLogs = await prisma.aIQualityLog.findMany({
+            where: { createdAt: dateFilter },
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+            include: {
+                patient: { select: { id: true, fullName: true } }
+            }
+        });
+
+        // 6. Calculate Rates
+        const errorRate = totalAIMessages > 0 ? (totalErrors / totalAIMessages) * 100 : 0;
+        const handoffRate = totalAIMessages > 0 ? (handoffCount / totalAIMessages) * 100 : 0;
+
+        return {
+            totalMessages: totalAIMessages,
+            totalErrors,
+            totalHandoffs: handoffCount,
+            errorRate: Math.round(errorRate * 10) / 10,
+            handoffRate: Math.round(handoffRate * 10) / 10,
+            issuesByType: errorsByType.map(e => ({ type: e.errorType, count: e._count.id })),
+            recentLogs: recentLogs.map(log => ({
+                id: log.id,
+                date: log.createdAt,
+                patientName: log.patient.fullName,
+                patientId: log.patientId,
+                type: log.errorType,
+                aiContent: log.aiContent,
+                patientReply: log.patientReply
+            }))
+        };
+    }
+
     private getDateFilter(filters: AnalyticsFilters) {
         if (!filters.from && !filters.to) return {};
 

@@ -209,11 +209,13 @@ export class AIQualityService {
             }),
         ]);
 
-        // Get handoff count (patients in HUMAN mode)
-        const handoffCount = await prisma.patient.count({
+        // Get handoff count (Events in last 7 days)
+        // Using AIQualityLog with type HANDOFF_REQUEST
+        const handoffCount = await prisma.aIQualityLog.count({
             where: {
-                chatMode: 'HUMAN',
-            },
+                errorType: 'HANDOFF_REQUEST',
+                createdAt: { gte: weekStart }
+            }
         });
 
         // Get quality issues with breakdown
