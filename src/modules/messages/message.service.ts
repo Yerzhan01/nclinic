@@ -21,6 +21,17 @@ export class MessageService {
     async saveInboundMessage(input: SaveInboundMessageInput): Promise<MessageDto | null> {
         let { phone, text, mediaUrl, whatsappMessageId, timestamp } = input;
 
+        // Idempotency check: Ignore if we already processed this message ID
+        if (whatsappMessageId) {
+            const existing = await prisma.message.findFirst({
+                where: { whatsappMessageId }
+            });
+            if (existing) {
+                logger.info({ whatsappMessageId }, 'Duplicate inbound message ignored (idempotency)');
+                return null;
+            }
+        }
+
         // Audio Transcription Logic
         if (mediaUrl) {
             const ext = mediaUrl.split('.').pop()?.toLowerCase();
@@ -316,6 +327,7 @@ export class MessageService {
                             sender: MessageSender.AI,
                             content: analysis.suggestedReply,
                             promptVariantId: analysis.promptVariantId,
+                            whatsappMessageId: result.whatsappMessageId, // Fix: Save ID to prevent duplication from webhook
                         },
                     });
 
