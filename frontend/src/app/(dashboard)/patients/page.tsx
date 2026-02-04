@@ -139,30 +139,30 @@ function PatientPreview({ patientId }: { patientId: string }) {
                 )}
             </div>
 
-            {/* Quick Actions */}
+            {/* Quick Actions - Make them compact */}
             <div className="px-6 pb-4 flex gap-3">
-                <Link href={`/patients/${patientId}?tab=chat`} className="flex-1">
-                    <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all cursor-pointer group">
+                <Link href={`/patients/${patientId}?tab=chat`} className="flex-1 max-w-[120px]">
+                    <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all cursor-pointer group h-full">
                         <MessageSquare className="h-5 w-5 text-slate-500 group-hover:text-blue-600 mb-1" />
                         <span className="text-xs font-medium text-slate-600 group-hover:text-blue-700">Чат</span>
                     </div>
                 </Link>
-                <Link href={`/patients/${patientId}?tab=calendar`} className="flex-1">
-                    <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all cursor-pointer group">
+                <Link href={`/patients/${patientId}?tab=calendar`} className="flex-1 max-w-[120px]">
+                    <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all cursor-pointer group h-full">
                         <Calendar className="h-5 w-5 text-slate-500 group-hover:text-blue-600 mb-1" />
                         <span className="text-xs font-medium text-slate-600 group-hover:text-blue-700">Чекины</span>
                     </div>
                 </Link>
-                <Link href={`/patients/${patientId}?tab=tasks`} className="flex-1">
-                    <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all cursor-pointer group">
+                <Link href={`/patients/${patientId}?tab=tasks`} className="flex-1 max-w-[120px]">
+                    <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all cursor-pointer group h-full">
                         <ClipboardList className="h-5 w-5 text-slate-500 group-hover:text-blue-600 mb-1" />
                         <span className="text-xs font-medium text-slate-600 group-hover:text-blue-700">Задачи</span>
                     </div>
                 </Link>
             </div>
 
-            {/* AI Toggle */}
-            <div className="px-6 pb-2">
+            {/* AI Toggle - Wrapped in flex to prevent stretch and maintain w-fit behavior from component */}
+            <div className="px-6 pb-2 flex justify-start">
                 <AIToggle patientId={patientId} />
             </div>
 
@@ -180,7 +180,7 @@ function PatientPreview({ patientId }: { patientId: string }) {
                             <div
                                 key={msg.id}
                                 className={cn(
-                                    "flex flex-col max-w-[85%]",
+                                    "flex flex-col max-w-[80%] md:max-w-[70%]", // Reduced max-width for better readability
                                     msg.sender === 'PATIENT' ? "self-start items-start" : "self-end items-end ml-auto"
                                 )}
                             >
