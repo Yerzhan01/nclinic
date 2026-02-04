@@ -80,25 +80,9 @@ function AlertLevelBadge({ level }: { level: AlertLevel }) {
     return <Badge variant={variants[level]}>{level}</Badge>;
 }
 
-function TaskPriorityBadge({ priority }: { priority: TaskPriority }) {
-    const variants: Record<TaskPriority, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-        LOW: 'outline',
-        NORMAL: 'secondary',
-        HIGH: 'default',
-        URGENT: 'destructive',
-    };
-    return <Badge variant={variants[priority]}>{priority}</Badge>;
-}
 
-function TaskStatusBadge({ status }: { status: TaskStatus }) {
-    const config: Record<TaskStatus, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; label: string }> = {
-        OPEN: { variant: 'outline', label: 'Открыта' },
-        IN_PROGRESS: { variant: 'secondary', label: 'В работе' },
-        DONE: { variant: 'default', label: 'Готово' },
-        CANCELLED: { variant: 'destructive', label: 'Отменена' },
-    };
-    return <Badge variant={config[status].variant}>{config[status].label}</Badge>;
-}
+
+
 
 function CheckInStatusBadge({ status }: { status: CheckInStatus }) {
     const config: Record<CheckInStatus, { icon: React.ReactNode; label: string; className: string }> = {
@@ -159,7 +143,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
 
     const [showTaskDialog, setShowTaskDialog] = useState(false);
     const [taskTitle, setTaskTitle] = useState('');
-    const [showAssignDialog, setShowAssignDialog] = useState(false);
+
     const [showEditDialog, setShowEditDialog] = useState(false);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
@@ -245,7 +229,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     const handleAssignProgram = async (templateId: string) => {
         try {
             await assignProgram.mutateAsync({ patientId: id, templateId });
-            setShowAssignDialog(false);
+
         } catch (error) {
             toast.error(getErrorMessage(error));
         }

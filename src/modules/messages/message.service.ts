@@ -510,11 +510,12 @@ export class MessageService {
     async getMessages(patientId: string, limit = 100): Promise<MessageDto[]> {
         const messages = await prisma.message.findMany({
             where: { patientId },
-            orderBy: { createdAt: 'asc' },
+            orderBy: { createdAt: 'desc' }, // Fetch NEWEST first
             take: limit,
         });
 
-        return messages.map((m) => ({
+        // Reverse to return in chronological order (Oldest -> Newest) for the UI
+        return messages.reverse().map((m) => ({
             id: m.id,
             patientId: m.patientId,
             direction: m.direction,
