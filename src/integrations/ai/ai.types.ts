@@ -13,6 +13,7 @@ export interface AIAgentSettings {
     maxSentences?: number;
     maxOutputTokens?: number;
     handoffTriggers?: string[];
+    handoffResponse?: string; // Auto-reply when handoff occurs
     forbiddenPhrases?: string[];
     commands?: {
         prefix?: string; // default: "#ai"
@@ -89,6 +90,7 @@ export const DEFAULT_AGENT_SETTINGS: AIAgentSettings = {
     format: 'bullets',
     maxSentences: 6,
     handoffTriggers: ['врач', 'менеджер', 'человек', 'специалист', 'жалоба', 'боль', 'плохо'],
+    handoffResponse: 'Спасибо. Я передал информацию вашему куратору, он скоро свяжется с вами.',
     forbiddenPhrases: [],
     commands: {
         prefix: '#ai',

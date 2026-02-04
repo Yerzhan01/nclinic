@@ -10,9 +10,11 @@ export interface AIAgentSettings {
     maxSentences?: number;
     maxOutputTokens?: number;
     handoffTriggers?: string[];
+    handoffResponse?: string;
     forbiddenPhrases?: string[];
     commands?: {
         prefix?: string;
+        stopResponse?: string;
         pauseKeywords?: string[];
         resumeKeywords?: string[];
         statusKeywords?: string[];

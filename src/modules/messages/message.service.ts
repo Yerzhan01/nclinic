@@ -293,6 +293,15 @@ export class MessageService {
                     'Handoff alert created - AI will NOT reply'
                 );
 
+                // Auto-reply for handoff if configured
+                const config = await aiService.getConfig();
+                const handoffResponse = config?.agent?.handoffResponse;
+
+                if (handoffResponse) {
+                    await this.sendSystemMessage(patientId, handoffResponse);
+                    logger.info({ patientId }, 'Handoff auto-reply sent');
+                }
+
                 // Update A/B test metrics for handoff
                 if (analysis.promptVariantId) {
                     await aiABTestService.updateVariantHandoffCount(analysis.promptVariantId);

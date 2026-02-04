@@ -63,6 +63,7 @@ export default function AISettingsPage() {
             setValue('rag.maxChars', settings.rag?.maxChars ?? 2000);
 
             setHandoffTriggers(settings.agent?.handoffTriggers ?? []);
+            setValue('agent.handoffResponse', settings.agent?.handoffResponse);
             setForbiddenPhrases(settings.agent?.forbiddenPhrases ?? []);
 
             setValue('agent.commands.prefix', settings.agent?.commands?.prefix ?? '#ai');
@@ -80,6 +81,7 @@ export default function AISettingsPage() {
                 agent: {
                     ...data.agent,
                     handoffTriggers,
+                    handoffResponse: data.agent?.handoffResponse,
                     forbiddenPhrases,
                     commands: {
                         prefix: data.agent?.commands?.prefix,
@@ -319,6 +321,19 @@ export default function AISettingsPage() {
                                         }}
                                     />
                                 </div>
+
+                                <div className="space-y-2">
+                                    <Label>Ответ при Handoff (Safety Response)</Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        Сообщение, которое отправится пациенту, если сработает триггер или высокий риск
+                                    </p>
+                                    <Textarea
+                                        {...register('agent.handoffResponse')}
+                                        placeholder="Спасибо. Я передал информацию вашему куратору, он скоро свяжется с вами."
+                                        rows={2}
+                                    />
+                                </div>
+
                                 <div className="space-y-2">
                                     <Label>Forbidden Phrases (фильтр ПОСЛЕ AI)</Label>
                                     <p className="text-xs text-muted-foreground">
