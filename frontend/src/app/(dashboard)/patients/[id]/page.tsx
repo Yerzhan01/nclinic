@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use, useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { usePatient, useUpdatePatient } from '@/hooks/usePatients';
 import { useActiveProgram, useProgramTemplates, useAssignProgram, usePauseProgram } from '@/hooks/useProgram';
@@ -45,7 +45,6 @@ import {
     MoreVertical,
     Play,
     Pause,
-    RefreshCw,
     User,
     Pencil,
     Trash2,
@@ -123,6 +122,21 @@ const slotLabels: Record<Slot, string> = {
     EVENING: 'Вечер',
 };
 
+// Date helper
+function formatMessageDate(date: Date): string {
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+        return 'Сегодня';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+        return 'Вчера';
+    } else {
+        return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+    }
+}
+
 export default function PatientDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
     const searchParams = useSearchParams();
@@ -149,6 +163,17 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
     const [showEditDialog, setShowEditDialog] = useState(false);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
+    // Auto-scroll ref
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // Auto-scroll effect
+    useEffect(() => {
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [messages, defaultTab]); // Scroll when messages change or tab switches
+
+
     const handleToggleChatMode = async () => {
         if (!patient) return;
         const newMode: ChatMode = patient.chatMode === 'AI' ? 'HUMAN' : 'AI';
@@ -169,7 +194,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
         try {
             await sendMessage.mutateAsync(message);
             setMessage('');
-            toast.success('Сообщение отправлено');
+            // toast.success('Сообщение отправлено'); // Less noise
         } catch (error) {
             toast.error(getErrorMessage(error));
         }
@@ -494,7 +519,7 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                             )}
                         </CardHeader>
                         <CardContent>
-                            <div className="space-y-4 max-h-96 overflow-y-auto mb-4">
+                            <div className="space-y-4 max-h-96 overflow-y-auto mb-4 pr-2">
                                 {messagesLoading ? (
                                     Array.from({ length: 3 }).map((_, i) => (
                                         <Skeleton key={i} className="h-16 w-full" />
@@ -502,8 +527,13 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                                 ) : messages.length === 0 ? (
                                     <p className="text-center text-muted-foreground py-8">Нет сообщений</p>
                                 ) : (
-                                    messages.map((msg) => {
+                                    messages.map((msg, index) => {
                                         const isOutbound = msg.direction === 'OUTBOUND';
+                                        const msgDate = new Date(msg.createdAt);
+                                        const prevMsg = messages[index - 1];
+                                        const prevMsgDate = prevMsg ? new Date(prevMsg.createdAt) : null;
+
+                                        const showDateHeader = !prevMsgDate || msgDate.toDateString() !== prevMsgDate.toDateString();
 
                                         // Determine media type
                                         let mediaContent = null;
@@ -540,37 +570,47 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
                                         }
 
                                         return (
-                                            <div
-                                                key={msg.id}
-                                                className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}
-                                            >
+                                            <div key={msg.id}>
+                                                {showDateHeader && (
+                                                    <div className="flex justify-center my-4">
+                                                        <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">
+                                                            {formatMessageDate(msgDate)}
+                                                        </span>
+                                                    </div>
+                                                )}
+
                                                 <div
-                                                    className={`max-w-[80%] rounded-lg px-4 py-2 ${isOutbound
-                                                        ? 'bg-primary text-primary-foreground'
-                                                        : 'bg-muted'
-                                                        }`}
+                                                    className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}
                                                 >
-                                                    {msg.content && <p className="text-sm whitespace-pre-wrap">{msg.content}</p>}
+                                                    <div
+                                                        className={`max-w-[80%] rounded-lg px-4 py-2 ${isOutbound
+                                                            ? 'bg-primary text-primary-foreground'
+                                                            : 'bg-muted'
+                                                            }`}
+                                                    >
+                                                        {msg.content && <p className="text-sm whitespace-pre-wrap">{msg.content}</p>}
 
-                                                    {mediaContent}
+                                                        {mediaContent}
 
-                                                    <p className="text-xs opacity-70 mt-1 flex items-center gap-1">
-                                                        {msg.sender} • {new Date(msg.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                                                        {isOutbound && msg.deliveryStatus && (
-                                                            <span className={`ml-1 ${msg.deliveryStatus === 'READ' ? 'text-blue-400' : ''}`}>
-                                                                {msg.deliveryStatus === 'PENDING' && '⏳'}
-                                                                {msg.deliveryStatus === 'SENT' && '✓'}
-                                                                {msg.deliveryStatus === 'DELIVERED' && '✓✓'}
-                                                                {msg.deliveryStatus === 'READ' && '✓✓'}
-                                                                {msg.deliveryStatus === 'FAILED' && '⚠️'}
-                                                            </span>
-                                                        )}
-                                                    </p>
+                                                        <p className="text-xs opacity-70 mt-1 flex items-center gap-1 justify-end">
+                                                            {msg.sender === 'SYSTEM' ? 'System' : (msg.sender === 'AI' ? 'AI' : '')} {msgDate.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                                                            {isOutbound && msg.deliveryStatus && (
+                                                                <span className={`ml-1 ${msg.deliveryStatus === 'READ' ? 'text-blue-400' : ''}`}>
+                                                                    {msg.deliveryStatus === 'PENDING' && '⏳'}
+                                                                    {msg.deliveryStatus === 'SENT' && '✓'}
+                                                                    {msg.deliveryStatus === 'DELIVERED' && '✓✓'}
+                                                                    {msg.deliveryStatus === 'READ' && '✓✓'}
+                                                                    {msg.deliveryStatus === 'FAILED' && '⚠️'}
+                                                                </span>
+                                                            )}
+                                                        </p>
+                                                    </div>
                                                 </div>
                                             </div>
                                         );
                                     })
                                 )}
+                                <div ref={messagesEndRef} />
                             </div>
 
                             <div className="flex gap-2">
