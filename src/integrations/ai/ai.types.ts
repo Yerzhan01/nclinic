@@ -19,6 +19,7 @@ export interface AIAgentSettings {
         pauseKeywords?: string[]; // default: ["off", "pause", "stop"]
         resumeKeywords?: string[]; // default: ["on", "resume", "start"]
         statusKeywords?: string[]; // default: ["status"]
+        stopResponse?: string; // Message sent when AI is paused
     };
 }
 
@@ -93,7 +94,8 @@ export const DEFAULT_AGENT_SETTINGS: AIAgentSettings = {
         prefix: '#ai',
         pauseKeywords: ['off', 'pause', 'stop', 'выкл', 'стоп'],
         resumeKeywords: ['on', 'resume', 'start', 'вкл', 'старт'],
-        statusKeywords: ['status', 'статус', 'info']
+        statusKeywords: ['status', 'статус', 'info'],
+        stopResponse: 'AI ассистент отключен. Дальнейшие ответы будут от живого оператора.'
     }
 };
 
