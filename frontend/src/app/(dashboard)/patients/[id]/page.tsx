@@ -149,11 +149,20 @@ export default function PatientDetailPage({ params }: { params: Promise<{ id: st
 
     // Auto-scroll ref
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const prevMsgCountRef = useRef(0);
 
     // Auto-scroll effect
     useEffect(() => {
         if (messagesEndRef.current) {
-            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+            // If first load (was 0, now > 0) -> instant jump
+            // If new messages added -> smooth scroll
+
+            const isInitialLoad = prevMsgCountRef.current === 0;
+            const behavior = isInitialLoad ? 'auto' : 'smooth';
+
+            messagesEndRef.current.scrollIntoView({ behavior });
+
+            prevMsgCountRef.current = messages.length;
         }
     }, [messages, defaultTab]); // Scroll when messages change or tab switches
 
