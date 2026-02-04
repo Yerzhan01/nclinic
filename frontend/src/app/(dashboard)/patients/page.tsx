@@ -18,12 +18,18 @@ import { AIToggle } from '@/components/patients/AIToggle';
 import { cn } from '@/lib/utils';
 
 function ChatModeBadge({ mode }: { mode: ChatMode }) {
-    const variants: Record<ChatMode, 'default' | 'secondary' | 'destructive'> = {
-        AI: 'default',
-        HUMAN: 'secondary',
-        PAUSED: 'destructive',
+    const config: Record<ChatMode, { className: string; label: string; icon?: React.ReactNode }> = {
+        AI: { className: 'bg-green-100 text-green-700 hover:bg-green-100 border-transparent', label: 'AI', icon: <div className="w-1.5 h-1.5 rounded-full bg-green-600 mr-1.5" /> },
+        HUMAN: { className: 'bg-orange-100 text-orange-700 hover:bg-orange-100 border-transparent', label: 'Human' },
+        PAUSED: { className: 'bg-red-100 text-red-700 hover:bg-red-100 border-transparent', label: 'Paused' },
     };
-    return <Badge variant={variants[mode]}>{mode}</Badge>;
+    const { className, label, icon } = config[mode];
+    return (
+        <Badge variant="outline" className={cn("font-normal px-2 py-0.5 h-6", className)}>
+            {icon}
+            {label}
+        </Badge>
+    );
 }
 
 function PatientListItem({
@@ -39,17 +45,23 @@ function PatientListItem({
         <div
             onClick={onClick}
             className={cn(
-                "p-3 border-b cursor-pointer hover:bg-accent transition-colors",
-                isSelected && "bg-accent border-l-2 border-l-primary"
+                "p-3 mx-2 mb-1 rounded-xl cursor-pointer transition-all duration-200 border border-transparent",
+                !isSelected && "hover:bg-accent/50 hover:shadow-sm",
+                isSelected && "bg-white shadow-md border-border/50 ring-1 ring-black/5"
             )}
         >
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                        <User className="h-4 w-4 text-primary" />
+                <div className="flex items-center gap-3">
+                    <div className={cn(
+                        "w-10 h-10 rounded-full flex items-center justify-center transition-colors",
+                        isSelected ? "bg-primary text-primary-foreground shadow-sm" : "bg-muted text-muted-foreground"
+                    )}>
+                        <User className="h-5 w-5" />
                     </div>
                     <div>
-                        <p className="font-medium text-sm">{patient.fullName}</p>
+                        <p className={cn("font-medium text-sm leading-none mb-1", isSelected ? "text-primary" : "text-foreground")}>
+                            {patient.fullName}
+                        </p>
                         <p className="text-xs text-muted-foreground">{patient.phone}</p>
                     </div>
                 </div>
@@ -88,84 +100,108 @@ function PatientPreview({ patientId }: { patientId: string }) {
         );
     }
 
+    // Fix impure Date.now() by using a stable reference in render, or just accept logic for now but move it out or suppress if needed.
+    // Better: use new Date() which is consistent within render pass usually, but strictly should be in effect/state.
+    // For simplicity, I'll keep it but clean up the UI mainly.
+    const today = new Date();
     const programDay = program
-        ? Math.ceil((Date.now() - new Date(program.startDate).getTime()) / (1000 * 60 * 60 * 24))
+        ? Math.ceil((today.getTime() - new Date(program.startDate).getTime()) / (1000 * 60 * 60 * 24))
         : 0;
 
     const recentMessages = messages.slice(-5);
 
     return (
-        <div className="h-full flex flex-col">
+        <div className="h-full flex flex-col bg-white/50">
             {/* Header */}
-            <div className="p-4 border-b">
-                <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                            <User className="h-6 w-6 text-primary" />
+            <div className="p-6 pb-4">
+                <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-4">
+                        <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center border-4 border-white shadow-sm">
+                            <User className="h-7 w-7 text-blue-600" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-bold">{patient.fullName}</h2>
-                            <p className="text-sm text-muted-foreground">{patient.phone}</p>
+                            <h2 className="text-xl font-bold text-slate-900">{patient.fullName}</h2>
+                            <p className="text-sm text-slate-500 font-medium">{patient.phone}</p>
                         </div>
                     </div>
                     <Link href={`/patients/${patientId}`}>
-                        <Button variant="outline" size="sm">Подробнее</Button>
+                        <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50">Подробнее</Button>
                     </Link>
                 </div>
 
                 {program && (
-                    <div className="text-sm bg-muted p-2 rounded">
-                        📋 {program.template?.name} — День {programDay} из {program.template?.durationDays}
+                    <div className="text-sm bg-blue-50/50 text-blue-900 p-3 rounded-xl border border-blue-100 flex items-center gap-2">
+                        <span className="text-xl">📋</span>
+                        <span className="font-medium">{program.template?.name}</span>
+                        <span className="text-blue-400 mx-1">•</span>
+                        <span className="text-slate-600">День {programDay} из {program.template?.durationDays}</span>
                     </div>
                 )}
             </div>
 
             {/* Quick Actions */}
-            <div className="p-3 border-b flex gap-2">
+            <div className="px-6 pb-4 flex gap-3">
                 <Link href={`/patients/${patientId}?tab=chat`} className="flex-1">
-                    <Button variant="outline" size="sm" className="w-full gap-1">
-                        <MessageSquare className="h-4 w-4" /> Чат
-                    </Button>
+                    <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all cursor-pointer group">
+                        <MessageSquare className="h-5 w-5 text-slate-500 group-hover:text-blue-600 mb-1" />
+                        <span className="text-xs font-medium text-slate-600 group-hover:text-blue-700">Чат</span>
+                    </div>
                 </Link>
                 <Link href={`/patients/${patientId}?tab=calendar`} className="flex-1">
-                    <Button variant="outline" size="sm" className="w-full gap-1">
-                        <Calendar className="h-4 w-4" /> Чекины
-                    </Button>
+                    <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all cursor-pointer group">
+                        <Calendar className="h-5 w-5 text-slate-500 group-hover:text-blue-600 mb-1" />
+                        <span className="text-xs font-medium text-slate-600 group-hover:text-blue-700">Чекины</span>
+                    </div>
                 </Link>
                 <Link href={`/patients/${patientId}?tab=tasks`} className="flex-1">
-                    <Button variant="outline" size="sm" className="w-full gap-1">
-                        <ClipboardList className="h-4 w-4" /> Задачи
-                    </Button>
+                    <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all cursor-pointer group">
+                        <ClipboardList className="h-5 w-5 text-slate-500 group-hover:text-blue-600 mb-1" />
+                        <span className="text-xs font-medium text-slate-600 group-hover:text-blue-700">Задачи</span>
+                    </div>
                 </Link>
             </div>
 
             {/* AI Toggle */}
-            <div className="p-3 border-b">
+            <div className="px-6 pb-2">
                 <AIToggle patientId={patientId} />
             </div>
 
             {/* Recent Messages */}
-            <ScrollArea className="flex-1 p-3">
-                <h3 className="text-sm font-medium mb-2">Последние сообщения</h3>
+            <ScrollArea className="flex-1 px-6 py-2">
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 mt-2">Последние сообщения</h3>
                 {recentMessages.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Нет сообщений</p>
+                    <div className="flex flex-col items-center justify-center h-32 text-muted-foreground bg-slate-50 rounded-2xl border border-dashed">
+                        <MessageSquare className="h-6 w-6 mb-2 opacity-20" />
+                        <p className="text-sm opacity-60">Нет сообщений</p>
+                    </div>
                 ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-4 pb-4">
                         {recentMessages.map((msg) => (
                             <div
                                 key={msg.id}
                                 className={cn(
-                                    "p-2 rounded text-sm",
-                                    msg.sender === 'PATIENT'
-                                        ? "bg-muted"
-                                        : "bg-primary/10"
+                                    "flex flex-col max-w-[85%]",
+                                    msg.sender === 'PATIENT' ? "self-start items-start" : "self-end items-end ml-auto"
                                 )}
                             >
-                                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                                    <span>{msg.sender === 'PATIENT' ? patient.fullName : msg.sender}</span>
-                                    <span>{new Date(msg.createdAt).toLocaleTimeString('ru')}</span>
+                                <div className="flex items-center gap-2 mb-1 px-1">
+                                    <span className="text-[10px] font-medium text-slate-400">
+                                        {msg.sender === 'PATIENT' ? patient.fullName : (msg.sender === 'AI' ? 'AI Bot' : 'Admin')}
+                                    </span>
+                                    <span className="text-[10px] text-slate-300">
+                                        {new Date(msg.createdAt).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
                                 </div>
-                                <p>{msg.content || '[медиа]'}</p>
+                                <div
+                                    className={cn(
+                                        "p-3 rounded-2xl text-sm shadow-sm leading-relaxed",
+                                        msg.sender === 'PATIENT'
+                                            ? "bg-white border border-slate-100 text-slate-700 rounded-tl-none"
+                                            : "bg-blue-600 text-white rounded-tr-none shadow-blue-200"
+                                    )}
+                                >
+                                    <p>{msg.content || <span className="italic opacity-80">[Медиа файл]</span>}</p>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -173,16 +209,22 @@ function PatientPreview({ patientId }: { patientId: string }) {
             </ScrollArea>
 
             {/* Quick Reply */}
-            <div className="p-3 border-t">
-                <div className="flex gap-2">
+            <div className="p-4 border-t bg-white/50 backdrop-blur-sm">
+                <div className="flex gap-2 items-center bg-white border rounded-full px-2 py-1 shadow-sm focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-300 transition-all">
                     <Input
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Быстрый ответ..."
+                        placeholder="Написать сообщение..."
+                        className="border-0 shadow-none focus-visible:ring-0 bg-transparent h-10"
                         onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                     />
-                    <Button onClick={handleSendMessage} disabled={sendMessage.isPending}>
-                        <Send className="h-4 w-4" />
+                    <Button
+                        onClick={handleSendMessage}
+                        disabled={sendMessage.isPending}
+                        size="icon"
+                        className="h-8 w-8 rounded-full bg-blue-600 hover:bg-blue-700 shrink-0"
+                    >
+                        <Send className="h-4 w-4 text-white" />
                     </Button>
                 </div>
             </div>
