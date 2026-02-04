@@ -169,11 +169,18 @@ export default function AISettingsPage() {
                                             onValueChange={v => setValue('model', v)}
                                         >
                                             <SelectTrigger><SelectValue /></SelectTrigger>
-                                            <SelectContent>
+                                            <SelectContent className="max-h-[300px]">
+                                                <SelectItem value="gpt-5.2">GPT-5.2 (New)</SelectItem>
+                                                <SelectItem value="gpt-5.1">GPT-5.1</SelectItem>
+                                                <SelectItem value="gpt-5">GPT-5</SelectItem>
+                                                <SelectItem value="gpt-5-mini">GPT-5 Mini</SelectItem>
+                                                <SelectItem value="gpt-5-nano">GPT-5 Nano</SelectItem>
+                                                <SelectItem value="gpt-o3">GPT-o3 (Reasoning)</SelectItem>
+                                                <SelectItem value="gpt-4.1">GPT-4.1</SelectItem>
+                                                <SelectItem value="gpt-4.1-mini">GPT-4.1 Mini</SelectItem>
+                                                <SelectItem value="gpt-4.1-nano">GPT-4.1 Nano</SelectItem>
+                                                <SelectItem value="gpt-4o">GPT-4o (Default)</SelectItem>
                                                 <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
-                                                <SelectItem value="gpt-4o">GPT-4o</SelectItem>
-                                                <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
-                                                <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
