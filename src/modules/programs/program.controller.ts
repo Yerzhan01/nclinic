@@ -7,7 +7,7 @@ import {
 } from './program.schema.js';
 import { programService } from './program.service.js';
 import { successResponse } from '@/common/utils/response.js';
-import { AppError } from '@/common/errors/AppError.js';
+// import { AppError } from '@/common/errors/AppError.js';
 
 export class ProgramController {
     /**
@@ -41,9 +41,9 @@ export class ProgramController {
 
         const result = await programService.getActiveCheckIns(patientId);
 
-        if (!result) {
-            throw AppError.notFound('No active program found for this patient');
-        }
+        // if (!result) {
+        //     throw AppError.notFound('No active program found for this patient');
+        // }
 
         return reply.send(successResponse(result));
     }
