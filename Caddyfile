@@ -1,0 +1,4 @@
+app.link-it.tech {
+    reverse_proxy /api/* api:3000
+    reverse_proxy * frontend:3000
+}

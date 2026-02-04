@@ -32,7 +32,10 @@ services:
       retries: 5
 
   api:
-    image: ghcr.io/yerzhan01/nclinic-api:latest
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: patient-assistant-api:local
     container_name: patient-assistant-api
     restart: always
     ports:
@@ -54,16 +57,34 @@ services:
       # No source code volume mount in production!
 
   frontend:
-    image: ghcr.io/yerzhan01/nclinic-frontend:latest
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    image: patient-assistant-frontend:local
     container_name: patient-assistant-frontend
     restart: always
-    ports:
-      - "3001:3000"
     environment:
-      NEXT_PUBLIC_API_URL: https://app.link-it.tech/api
+      NEXT_PUBLIC_API_URL: https://app.link-it.tech/api/v1
     depends_on:
+      - api
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: patient-assistant-caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
       - api
 
 volumes:
   postgres_data:
   redis_data:
+  caddy_data:
+  caddy_config:
