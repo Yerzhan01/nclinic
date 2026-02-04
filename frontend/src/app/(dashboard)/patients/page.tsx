@@ -175,13 +175,13 @@ function PatientPreview({ patientId }: { patientId: string }) {
                         <p className="text-sm opacity-60">Нет сообщений</p>
                     </div>
                 ) : (
-                    <div className="space-y-4 pb-4">
+                    <div className="flex flex-col gap-4 pb-4">
                         {recentMessages.map((msg) => (
                             <div
                                 key={msg.id}
                                 className={cn(
-                                    "flex flex-col max-w-[85%]",
-                                    msg.sender === 'PATIENT' ? "self-start items-start" : "self-end items-end ml-auto"
+                                    "flex flex-col w-fit max-w-[70%]",
+                                    msg.sender === 'PATIENT' ? "self-start items-start" : "self-end items-end"
                                 )}
                             >
                                 <div className="flex items-center gap-2 mb-1 px-1">
@@ -194,13 +194,13 @@ function PatientPreview({ patientId }: { patientId: string }) {
                                 </div>
                                 <div
                                     className={cn(
-                                        "p-3 rounded-2xl text-sm shadow-sm leading-relaxed",
+                                        "p-3 rounded-2xl text-sm shadow-sm leading-relaxed break-words whitespace-pre-wrap",
                                         msg.sender === 'PATIENT'
                                             ? "bg-white border border-slate-100 text-slate-700 rounded-tl-none"
                                             : "bg-blue-600 text-white rounded-tr-none shadow-blue-200"
                                     )}
                                 >
-                                    <p>{msg.content || <span className="italic opacity-80">[Медиа файл]</span>}</p>
+                                    <p className="break-words">{msg.content || <span className="italic opacity-80">[Медиа файл]</span>}</p>
                                 </div>
                             </div>
                         ))}
