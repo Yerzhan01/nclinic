@@ -32,10 +32,7 @@ services:
       retries: 5
 
   api:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile
-    image: patient-assistant-api:local
+    image: ghcr.io/yerzhan01/nclinic-api:latest
     container_name: patient-assistant-api
     restart: always
     ports:
@@ -57,10 +54,7 @@ services:
       # No source code volume mount in production!
 
   frontend:
-    build:
-      context: frontend
-      dockerfile: Dockerfile
-    image: patient-assistant-frontend:local
+    image: ghcr.io/yerzhan01/nclinic-frontend:latest
     container_name: patient-assistant-frontend
     restart: always
     environment:
