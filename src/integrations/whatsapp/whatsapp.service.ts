@@ -203,6 +203,13 @@ export class WhatsAppService {
             return;
         }
 
+        // Filter: Only process PERSONAL (1-on-1) chats, ignore ALL group messages
+        const chatId = body.senderData?.chatId || '';
+        if (chatId.endsWith('@g.us')) {
+            logger.debug({ chatId, sender: body.senderData?.sender }, 'Group message ignored (AI only works in personal chats)');
+            return;
+        }
+
         // Handle outgoing messages (sent from phone)
         if (body.typeWebhook === 'outgoingMessageReceived' || body.typeWebhook === 'outgoingAPIMessageReceived') {
             const parsed = this.parseWebhook(body);
@@ -220,12 +227,6 @@ export class WhatsAppService {
             return;
         }
 
-        // Filter: Only process PERSONAL (1-on-1) chats, ignore GROUP messages
-        const chatId = body.senderData?.chatId || '';
-        if (chatId.endsWith('@g.us')) {
-            logger.debug({ chatId, sender: body.senderData?.sender }, 'Group message ignored (AI only works in personal chats)');
-            return;
-        }
 
         const parsed = this.parseWebhook(body);
         if (!parsed) {
