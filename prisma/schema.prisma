@@ -231,6 +231,7 @@ model ProgramTemplate {
   durationDays Int      @map("duration_days")
   slotsPerDay  Slot[]   @map("slots_per_day")
   rules        Json?    // Allowed misses, triggers, etc.
+  welcomeMessages Json?  @map("welcome_messages") // String[] sent on enrollment
   isActive     Boolean  @default(true) @map("is_active")
 
   createdAt    DateTime @default(now()) @map("created_at")

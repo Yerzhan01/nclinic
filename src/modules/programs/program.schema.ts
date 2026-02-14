@@ -34,6 +34,7 @@ export const createTemplateSchema = z.object({
     durationDays: z.number().int().min(1).default(42),
     isActive: z.boolean().default(true),
     rules: programTemplateRulesSchema,
+    welcomeMessages: z.array(z.string()).optional(),
 });
 
 export const updateTemplateSchema = createTemplateSchema.partial();

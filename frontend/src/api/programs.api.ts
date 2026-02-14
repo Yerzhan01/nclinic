@@ -24,6 +24,7 @@ export interface ProgramTemplate {
     slotsPerDay: string[];
     isActive: boolean;
     rules: ProgramTemplateRules;
+    welcomeMessages?: string[];
     createdAt: string;
     updatedAt: string;
 }
@@ -33,6 +34,7 @@ export interface CreateTemplateInput {
     durationDays: number;
     isActive: boolean;
     rules: ProgramTemplateRules;
+    welcomeMessages?: string[];
 }
 
 export type UpdateTemplateInput = Partial<CreateTemplateInput>;

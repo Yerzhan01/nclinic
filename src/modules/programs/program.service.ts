@@ -73,11 +73,11 @@ export class ProgramService {
             },
         });
 
-        // AmoCRM sync: Handled by WEEK_1 mapping in reminder.worker.ts (no separate PROGRAM_STARTED needed)
+        // Send welcome messages (fire-and-forget, don't block enrollment)
+        this.sendWelcomeMessages(patientId, (template as any).welcomeMessages).catch(err =>
+            logger.error({ err, patientId }, 'Failed to send welcome messages')
+        );
 
-        // Initialize empty check-ins? No, we do JIT check-ins now with new engine
-        // But we might want to generate "expected" check-ins for the future.
-        // For Phase 21, we will stick to JIT creation by the scheduler / answers.
         const checkInsCreated = 0;
 
         return {
@@ -264,10 +264,11 @@ export class ProgramService {
             data: {
                 name: input.name,
                 durationDays: input.durationDays,
-                slotsPerDay: ['MORNING', 'AFTERNOON', 'EVENING'], // Default
+                slotsPerDay: ['MORNING', 'AFTERNOON', 'EVENING'],
                 isActive: input.isActive,
                 rules: input.rules as any,
-            },
+                welcomeMessages: input.welcomeMessages ?? [],
+            } as any,
         });
     }
 
@@ -285,7 +286,8 @@ export class ProgramService {
                 durationDays: input.durationDays,
                 isActive: input.isActive,
                 rules: input.rules ? (input.rules as any) : undefined,
-            },
+                welcomeMessages: input.welcomeMessages,
+            } as any,
         });
     }
 
@@ -582,6 +584,32 @@ export class ProgramService {
         });
         logger.info({ patientId, type, checkInId: checkIn.id }, 'CheckIn created');
         return checkIn.id;
+    }
+
+    /**
+     * Send welcome messages from template to patient with delays between messages
+     */
+    private async sendWelcomeMessages(patientId: string, welcomeMessages: unknown): Promise<void> {
+        if (!Array.isArray(welcomeMessages) || welcomeMessages.length === 0) return;
+
+        const { messageService } = await import('@/modules/messages/message.service.js');
+
+        for (let i = 0; i < welcomeMessages.length; i++) {
+            const msg = String(welcomeMessages[i]).trim();
+            if (!msg) continue;
+
+            // Delay between messages (3 seconds), skip delay for the first one
+            if (i > 0) {
+                await new Promise(resolve => setTimeout(resolve, 3000));
+            }
+
+            try {
+                await messageService.sendSystemMessage(patientId, msg);
+                logger.info({ patientId, messageIndex: i + 1, total: welcomeMessages.length }, 'Welcome message sent');
+            } catch (err) {
+                logger.error({ err, patientId, messageIndex: i + 1 }, 'Failed to send welcome message');
+            }
+        }
     }
 
     private isTimeMatchExtended(scheduledTime: string, currentHour: number, currentMinute: number, windowMinutes: number): boolean {

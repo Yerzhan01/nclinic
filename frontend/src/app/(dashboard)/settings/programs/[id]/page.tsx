@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Save, ArrowLeft, Plus, Trash, Clock } from "lucide-react";
+import { Loader2, Save, ArrowLeft, Plus, Trash, Clock, MessageSquare } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
@@ -66,6 +66,7 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
     const [duration, setDuration] = useState(42);
     const [isActive, setIsActive] = useState(true);
     const [rules, setRules] = useState<ProgramTemplateRules>({ schedule: [] });
+    const [welcomeMessages, setWelcomeMessages] = useState<string[]>([]);
     const [hasChanges, setHasChanges] = useState(false);
 
     // Activity Dialog State
@@ -88,6 +89,7 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
             setIsActive(program.isActive);
             // Ensure rules structure exists
             setRules(program.rules && program.rules.schedule ? program.rules : { schedule: [] });
+            setWelcomeMessages(Array.isArray(program.welcomeMessages) ? program.welcomeMessages : []);
         }
     }, [program]);
 
@@ -101,6 +103,7 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
                     durationDays: duration,
                     isActive,
                     rules,
+                    welcomeMessages: welcomeMessages.filter(m => m.trim()),
                 },
             });
             toast.success("Программа сохранена успешно");
@@ -263,6 +266,59 @@ export default function ProgramEditorPage({ params }: { params: Promise<{ id: st
                             <Label>Статус активности</Label>
                             <Switch checked={isActive} onCheckedChange={v => { setIsActive(v); setHasChanges(true); }} />
                         </div>
+                    </CardContent>
+                </Card>
+
+                {/* Welcome Messages Card */}
+                <Card className="md:col-span-1 h-fit">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <MessageSquare className="h-4 w-4" />
+                            Приветственные сообщения
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        <p className="text-xs text-muted-foreground">
+                            Отправляются автоматически при подключении пациента к программе.
+                        </p>
+                        {welcomeMessages.map((msg, idx) => (
+                            <div key={idx} className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                    <Label className="text-xs">Сообщение {idx + 1}</Label>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 text-muted-foreground hover:text-red-500"
+                                        onClick={() => {
+                                            setWelcomeMessages(prev => prev.filter((_, i) => i !== idx));
+                                            setHasChanges(true);
+                                        }}
+                                    >
+                                        <Trash className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                                <Textarea
+                                    value={msg}
+                                    onChange={e => {
+                                        setWelcomeMessages(prev => prev.map((m, i) => i === idx ? e.target.value : m));
+                                        setHasChanges(true);
+                                    }}
+                                    rows={4}
+                                    placeholder="Текст приветственного сообщения..."
+                                />
+                            </div>
+                        ))}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => {
+                                setWelcomeMessages(prev => [...prev, '']);
+                                setHasChanges(true);
+                            }}
+                        >
+                            <Plus className="h-4 w-4 mr-1" /> Добавить сообщение
+                        </Button>
                     </CardContent>
                 </Card>
 
