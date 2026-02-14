@@ -31,7 +31,7 @@ export function useConnectAmoCRM() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async (data: { baseDomain: string; accessToken: string; pipelineId?: number; mappings?: Record<string, { pipelineId: number; statusId: number }> }) => {
+        mutationFn: async (data: { baseDomain: string; accessToken?: string; pipelineId?: number; mappings?: Record<string, { pipelineId: number; statusId: number }> }) => {
             const response = await api.post<ApiResponse<void>>('/integrations/amocrm/connect', data);
             return response.data;
         },
