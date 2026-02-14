@@ -10,12 +10,20 @@ export class AmoCRMController {
     async connect(request: FastifyRequest, reply: FastifyReply) {
         const body = connectAmoCRMSchema.parse(request.body);
 
+        // Get existing config to merge (preserve accessToken if not provided)
+        const existing = await amoCRMService.getConfig();
+
+        const accessToken = body.accessToken || existing?.accessToken;
+        if (!accessToken) {
+            return reply.status(400).send({ error: 'Access token is required for first-time setup' });
+        }
+
         await amoCRMService.saveConfig({
             baseDomain: body.baseDomain,
-            accessToken: body.accessToken,
-            pipelineId: body.pipelineId,
-            statusId: body.statusId,
-            mappings: body.mappings as any, // Cast to any or verify type matches config
+            accessToken,
+            pipelineId: body.pipelineId ?? existing?.pipelineId,
+            statusId: body.statusId ?? existing?.statusId,
+            mappings: body.mappings as any ?? existing?.mappings,
         });
 
         return reply.send(successResponse({ message: 'amoCRM configured successfully' }));

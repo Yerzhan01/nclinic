@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const connectAmoCRMSchema = z.object({
     baseDomain: z.string().min(1, 'Base domain is required'),
-    accessToken: z.string().min(1, 'Access token is required'),
+    accessToken: z.string().optional(),
     pipelineId: z.number().optional(),
     statusId: z.number().optional(),
     mappings: z.record(z.string(), z.object({
