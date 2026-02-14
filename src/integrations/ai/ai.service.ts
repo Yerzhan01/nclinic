@@ -228,7 +228,21 @@ export class AIService {
         // Reverse to chronological order (Oldest -> Newest) for the LLM
         recentMessages.reverse();
 
-        const { prompt, variantId } = await aiPromptBuilder.buildPrompt(patientId, recentMessages);
+        const promptResult = await aiPromptBuilder.buildPrompt(patientId, recentMessages);
+
+        // If no system prompt is configured, AI should not reply
+        if (!promptResult) {
+            logger.warn({ patientId }, 'AI prompt not configured — skipping reply');
+            return {
+                sentiment: 'neutral',
+                riskLevel: 'LOW',
+                summary: 'AI prompt not configured',
+                shouldReply: false,
+                handoffRequired: false,
+            };
+        }
+
+        const { prompt, variantId } = promptResult;
 
         // Build conversation history for context (last 20 messages)
         const conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];

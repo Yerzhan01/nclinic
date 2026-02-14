@@ -2,13 +2,14 @@ import { prisma } from '@/config/prisma.js';
 import { logger } from '@/common/utils/logger.js';
 import { aiABTestService } from './ai.ab-test.service.js';
 import { aiSummaryService } from './ai.summary.service.js';
+import { aiService } from './ai.service.js';
 import { ragService } from '@/modules/rag/rag.service.js';
 import { buildPatientContext } from '@/common/utils/buildPatientContext.js';
 import type { Message } from '@prisma/client';
 import type { PatientProfile } from '@/modules/patients/patient-profile.schema.js';
 
 // Default system prompt if no variants configured
-const DEFAULT_SYSTEM_PROMPT = `Ты — персональный ИИ-куратор пациента в программе снижения веса клиники NClinic.
+const _DEFAULT_SYSTEM_PROMPT = `Ты — персональный ИИ-куратор пациента в программе снижения веса клиники NClinic.
 Твоя задача — сопровождать пациента так же внимательно и заботливо, как это делает живой куратор.
 
 === ТВОИ ОБЯЗАННОСТИ ===
@@ -55,7 +56,7 @@ const DEFAULT_SYSTEM_PROMPT = `Ты — персональный ИИ-курат
     ]
 }`;
 
-const DEFAULT_STYLE_GUIDE = `=== СТИЛЬ ОБЩЕНИЯ ===
+const _DEFAULT_STYLE_GUIDE = `=== СТИЛЬ ОБЩЕНИЯ ===
 
 ✅ Говори тёпло, заботливо и профессионально
 ✅ Используй эмодзи умеренно (1-2 на сообщение)
@@ -116,7 +117,27 @@ export class AIPromptBuilder {
     /**
      * Build full prompt for AI response generation
      */
-    async buildPrompt(patientId: string, recentMessages: Message[]): Promise<PromptBuildResult> {
+    async buildPrompt(patientId: string, recentMessages: Message[]): Promise<PromptBuildResult | null> {
+        // Read AI config from DB settings
+        const config = await aiService.getConfig();
+
+        // Select prompt variant (A/B testing overrides settings)
+        const variant = await aiABTestService.selectVariant();
+
+        // Priority: A/B variant > DB settings > nothing (don't reply)
+        const systemPrompt = variant?.systemPrompt
+            || config?.agent?.systemPromptBase
+            || null;
+
+        if (!systemPrompt) {
+            logger.warn({ patientId }, 'No system prompt configured — AI will not reply');
+            return null;
+        }
+
+        const styleGuide = variant?.styleGuide
+            || config?.agent?.styleGuide
+            || '';
+
         // Get patient data with active program
         const patient = await prisma.patient.findUnique({
             where: { id: patientId },
@@ -134,11 +155,6 @@ export class AIPromptBuilder {
             },
             include: { template: true },
         });
-
-        // Select prompt variant (A/B testing)
-        const variant = await aiABTestService.selectVariant();
-        const systemPrompt = variant?.systemPrompt || DEFAULT_SYSTEM_PROMPT;
-        const styleGuide = variant?.styleGuide || DEFAULT_STYLE_GUIDE;
 
         // Get conversation summary
         const summary = await aiSummaryService.getSummary(patientId);
