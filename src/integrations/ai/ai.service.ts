@@ -24,11 +24,27 @@ export class AIService {
             return null;
         }
 
-        const config = settings.config as unknown as AIConfig;
+        const raw = settings.config as Record<string, unknown>;
+        const config = raw as unknown as AIConfig;
+
         // Inject env var if key is missing in DB
         if (!config.apiKey && process.env.OPENAI_API_KEY) {
             config.apiKey = process.env.OPENAI_API_KEY;
         }
+
+        // Migrate legacy flat format → nested agent format
+        // Old DB had: { systemPrompt, maxTokens, ... }
+        // New format expects: { agent: { systemPromptBase, maxOutputTokens, ... } }
+        if (!config.agent) {
+            config.agent = {};
+        }
+        if (!config.agent.systemPromptBase && typeof raw.systemPrompt === 'string') {
+            config.agent.systemPromptBase = raw.systemPrompt as string;
+        }
+        if (!config.agent.maxOutputTokens && typeof raw.maxTokens === 'number') {
+            config.agent.maxOutputTokens = raw.maxTokens as number;
+        }
+
         return config;
     }
 
