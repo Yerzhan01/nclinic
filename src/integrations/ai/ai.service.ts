@@ -240,15 +240,9 @@ export class AIService {
                 response_format: { type: 'json_object' },
             };
 
-            // Add max_tokens or max_completion_tokens depending on model
+            // Use max_completion_tokens (OpenAI deprecated max_tokens for newer models)
             if (agentSettings.maxOutputTokens) {
-                const isReasoningModel = config.model.startsWith('o1') || config.model.startsWith('o3') || config.model.includes('gpt-o3');
-                if (isReasoningModel) {
-                    // @ts-ignore - max_completion_tokens is valid for newer models but types might lag
-                    requestBody.max_completion_tokens = agentSettings.maxOutputTokens;
-                } else {
-                    requestBody.max_tokens = agentSettings.maxOutputTokens;
-                }
+                requestBody.max_completion_tokens = agentSettings.maxOutputTokens;
             }
 
             const response = await this.fetchWithRetry('https://api.openai.com/v1/chat/completions', {
@@ -747,7 +741,7 @@ export class AIService {
                         }
                     ],
                     response_format: { type: 'json_object' },
-                    max_tokens: 1000,
+                    max_completion_tokens: 1000,
                 }),
             });
 

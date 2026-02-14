@@ -150,7 +150,7 @@ ${recentMessages}
                         { role: 'user', content: prompt },
                     ],
                     temperature: 0.3,
-                    max_tokens: 500,
+                    max_completion_tokens: 500,
                 }),
             });
 
