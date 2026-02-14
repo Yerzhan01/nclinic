@@ -220,6 +220,13 @@ export class WhatsAppService {
             return;
         }
 
+        // Filter: Only process PERSONAL (1-on-1) chats, ignore GROUP messages
+        const chatId = body.senderData?.chatId || '';
+        if (chatId.endsWith('@g.us')) {
+            logger.debug({ chatId, sender: body.senderData?.sender }, 'Group message ignored (AI only works in personal chats)');
+            return;
+        }
+
         const parsed = this.parseWebhook(body);
         if (!parsed) {
             logger.info({ type: body?.typeWebhook }, 'Webhook ignored (not incoming message or invalid)');
