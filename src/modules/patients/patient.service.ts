@@ -303,6 +303,25 @@ export class PatientService {
 
         return timeline;
     }
+
+    // Delete patient and all related data
+    async deletePatient(id: string): Promise<void> {
+        const patient = await prisma.patient.findUnique({ where: { id } });
+        if (!patient) { throw AppError.notFound('Patient not found'); }
+
+        // Cascade delete related records
+        await prisma.$transaction([
+            prisma.message.deleteMany({ where: { patientId: id } }),
+            prisma.checkIn.deleteMany({ where: { patientId: id } }),
+            prisma.programInstance.deleteMany({ where: { patientId: id } }),
+            prisma.alert.deleteMany({ where: { patientId: id } }),
+            prisma.task.deleteMany({ where: { patientId: id } }),
+            prisma.aIQualityLog.deleteMany({ where: { patientId: id } }),
+            prisma.patient.delete({ where: { id } }),
+        ]);
+
+        logger.info({ patientId: id }, 'Patient deleted with all related data');
+    }
 }
 
 export const patientService = new PatientService();

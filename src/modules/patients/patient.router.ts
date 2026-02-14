@@ -9,6 +9,7 @@ export default async function patientRouter(app: FastifyInstance) {
     app.patch('/:id', patientController.update.bind(patientController));
     app.get('/', patientController.list.bind(patientController));
     app.get('/:id', patientController.get.bind(patientController));
+    app.delete('/:id', patientController.delete.bind(patientController));
 
     // Profile endpoints
     app.get('/:id/profile', patientController.getProfile.bind(patientController));

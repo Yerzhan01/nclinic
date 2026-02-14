@@ -57,6 +57,12 @@ export class PatientController {
         const timeline = await patientService.getTimeline(id);
         return reply.send(successResponse(timeline));
     }
+
+    async delete(request: FastifyRequest, reply: FastifyReply) {
+        const { id } = patientIdParamSchema.parse(request.params);
+        await patientService.deletePatient(id);
+        return reply.send(successResponse(null));
+    }
 }
 
 export const patientController = new PatientController();
