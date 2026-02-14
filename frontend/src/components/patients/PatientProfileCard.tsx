@@ -50,6 +50,7 @@ export function PatientProfileCard({ patientId }: Props) {
     // Sync form with fetched profile
     useEffect(() => {
         if (profile) {
+            setValue('branch', profile.branch);
             setValue('heightCm', profile.heightCm);
             setValue('weightKg', profile.weightKg);
             setValue('targetWeightKg', profile.targetWeightKg);
@@ -136,6 +137,21 @@ export function PatientProfileCard({ patientId }: Props) {
             </CardHeader>
             <CardContent>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                    {/* Branch */}
+                    <div className="space-y-2">
+                        <Label>Филиал</Label>
+                        <Select
+                            value={watch('branch') || ''}
+                            onValueChange={v => setValue('branch', v)}
+                        >
+                            <SelectTrigger><SelectValue placeholder="Выберите филиал" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="astana">Астана</SelectItem>
+                                <SelectItem value="almaty">Алматы</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
                     {/* Anthropometry */}
                     <div className="space-y-3">
                         <h4 className="font-medium">Антропометрия</h4>

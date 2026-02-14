@@ -213,6 +213,7 @@ export interface NutritionPlan {
 }
 
 export interface PatientProfile {
+    branch?: string;
     heightCm?: number;
     weightKg?: number;
     targetWeightKg?: number;
