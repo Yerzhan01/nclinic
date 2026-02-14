@@ -73,10 +73,7 @@ export class ProgramService {
             },
         });
 
-        // Dynamic AmoCRM Sync
-        // We import dynamically to avoid circular dependencies if any, or just use the singleton
-        const { amoCRMService } = await import('@/integrations/amocrm/amocrm.service.js');
-        await amoCRMService.syncPatientState(patientId, 'PROGRAM_STARTED');
+        // AmoCRM sync: Handled by WEEK_1 mapping in reminder.worker.ts (no separate PROGRAM_STARTED needed)
 
         // Initialize empty check-ins? No, we do JIT check-ins now with new engine
         // But we might want to generate "expected" check-ins for the future.

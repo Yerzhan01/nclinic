@@ -114,6 +114,12 @@ export class AmoCRMService {
         const config = await this.getConfig();
         if (!config) return null;
 
+        // Prevent duplicates: if patient already has a lead, return existing
+        if (patient.amoLeadId) {
+            logger.info({ patientId: patient.id, existingLeadId: patient.amoLeadId }, 'amoCRM lead already exists, skipping creation');
+            return patient.amoLeadId;
+        }
+
         try {
             // 1. Try to find existing contact
             const existingContactId = await this.findContactByPhone(patient.phone);
