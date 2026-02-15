@@ -4,11 +4,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import type { ApiResponse, Message } from '@/types/api';
 
-export function useMessages(patientId: string) {
+export function useMessages(patientId: string, limit?: number) {
     return useQuery({
-        queryKey: ['messages', patientId],
+        queryKey: ['messages', patientId, limit],
         queryFn: async () => {
-            const response = await api.get<ApiResponse<Message[]>>(`/messages/${patientId}`);
+            const params = limit ? `?limit=${limit}` : '';
+            const response = await api.get<ApiResponse<Message[]>>(`/messages/${patientId}${params}`);
             return response.data.data || [];
         },
         enabled: !!patientId,

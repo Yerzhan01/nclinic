@@ -4,15 +4,16 @@ import { useState, useEffect } from 'react';
 import { usePatients, usePatient } from '@/hooks/usePatients';
 import { useActiveProgram } from '@/hooks/useProgram';
 import { useMessages, useSendMessage } from '@/hooks/useMessages';
+import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, MessageSquare, ClipboardList, Calendar, Send, User } from 'lucide-react';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { Search, MessageSquare, ClipboardList, Calendar, Send, User, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import type { ChatMode } from '@/types/api';
+import type { ChatMode, Patient } from '@/types/api';
 import { CreatePatientDialog } from '@/components/patients/CreatePatientDialog';
 import { AIToggle } from '@/components/patients/AIToggle';
 import { cn } from '@/lib/utils';
@@ -37,7 +38,7 @@ function PatientListItem({
     isSelected,
     onClick
 }: {
-    patient: { id: string; fullName: string; phone: string; chatMode: ChatMode };
+    patient: Pick<Patient, 'id' | 'fullName' | 'phone' | 'chatMode'>;
     isSelected: boolean;
     onClick: () => void;
 }) {
@@ -74,14 +75,18 @@ function PatientListItem({
 function PatientPreview({ patientId }: { patientId: string }) {
     const { data: patient, isLoading: patientLoading } = usePatient(patientId);
     const { data: program } = useActiveProgram(patientId);
-    const { data: messages = [] } = useMessages(patientId);
+    const { data: messages = [] } = useMessages(patientId, 5);
     const sendMessage = useSendMessage(patientId);
     const [newMessage, setNewMessage] = useState('');
 
     const handleSendMessage = async () => {
         if (!newMessage.trim()) return;
-        await sendMessage.mutateAsync(newMessage);
-        setNewMessage('');
+        try {
+            await sendMessage.mutateAsync(newMessage);
+            setNewMessage('');
+        } catch {
+            toast.error('Ошибка отправки сообщения');
+        }
     };
 
     if (patientLoading) {
@@ -100,15 +105,11 @@ function PatientPreview({ patientId }: { patientId: string }) {
         );
     }
 
-    // Fix impure Date.now() by using a stable reference in render, or just accept logic for now but move it out or suppress if needed.
-    // Better: use new Date() which is consistent within render pass usually, but strictly should be in effect/state.
-    // For simplicity, I'll keep it but clean up the UI mainly.
-    const today = new Date();
-    const programDay = program
-        ? Math.ceil((today.getTime() - new Date(program.startDate).getTime()) / (1000 * 60 * 60 * 24))
-        : 0;
+    const programDay = program?.currentDay ?? 0;
+    const programDuration = program?.template?.durationDays;
+    const programName = program?.template?.name;
 
-    const recentMessages = messages.slice(-5);
+    const recentMessages = messages;
 
     return (
         <div className="h-full flex flex-col bg-white/50">
@@ -129,12 +130,18 @@ function PatientPreview({ patientId }: { patientId: string }) {
                     </Link>
                 </div>
 
-                {program && (
+                {program ? (
                     <div className="text-sm bg-blue-50/50 text-blue-900 p-3 rounded-xl border border-blue-100 flex items-center gap-2">
                         <span className="text-xl">📋</span>
-                        <span className="font-medium">{program.template?.name}</span>
+                        <span className="font-medium">{programName}</span>
                         <span className="text-blue-400 mx-1">•</span>
-                        <span className="text-slate-600">День {programDay} из {program.template?.durationDays}</span>
+                        <span className="text-slate-600">День {programDay} из {programDuration}</span>
+                    </div>
+                ) : (
+                    <div className="text-sm bg-slate-50 text-slate-500 p-3 rounded-xl border border-slate-100 flex items-center gap-2">
+                        <span className="text-xl">📋</span>
+                        <span>Программа не назначена</span>
+                        <Link href={`/patients/${patientId}`} className="text-blue-600 hover:underline ml-auto text-xs font-medium">Назначить</Link>
                     </div>
                 )}
             </div>
@@ -220,11 +227,11 @@ function PatientPreview({ patientId }: { patientId: string }) {
                     />
                     <Button
                         onClick={handleSendMessage}
-                        disabled={sendMessage.isPending}
+                        disabled={sendMessage.isPending || !newMessage.trim()}
                         size="icon"
-                        className="h-8 w-8 rounded-full bg-blue-600 hover:bg-blue-700 shrink-0"
+                        className="h-8 w-8 rounded-full bg-blue-600 hover:bg-blue-700 shrink-0 disabled:opacity-40"
                     >
-                        <Send className="h-4 w-4 text-white" />
+                        {sendMessage.isPending ? <Loader2 className="h-4 w-4 text-white animate-spin" /> : <Send className="h-4 w-4 text-white" />}
                     </Button>
                 </div>
             </div>
@@ -246,12 +253,12 @@ export default function PatientsPage() {
 
     const { data: patients = [], isLoading } = usePatients(debouncedSearch);
 
-    // Auto-select first patient when list loads
-    useEffect(() => {
-        if (patients.length > 0 && !selectedPatientId) {
-            setSelectedPatientId(patients[0].id);
-        }
-    }, [patients, selectedPatientId]);
+    // Derive the effective selected ID — auto-select first if current selection is invalid
+    const effectiveSelectedId = (() => {
+        if (patients.length === 0) return null;
+        if (selectedPatientId && patients.some(p => p.id === selectedPatientId)) return selectedPatientId;
+        return patients[0].id;
+    })();
 
     return (
         <div className="h-[calc(100vh-120px)] flex flex-col">
@@ -300,7 +307,7 @@ export default function PatientsPage() {
                                 <PatientListItem
                                     key={patient.id}
                                     patient={patient}
-                                    isSelected={patient.id === selectedPatientId}
+                                    isSelected={patient.id === effectiveSelectedId}
                                     onClick={() => setSelectedPatientId(patient.id)}
                                 />
                             ))
@@ -310,8 +317,8 @@ export default function PatientsPage() {
 
                 {/* Patient Preview (Right) */}
                 <Card className="flex-1 min-w-0">
-                    {selectedPatientId ? (
-                        <PatientPreview patientId={selectedPatientId} />
+                    {effectiveSelectedId ? (
+                        <PatientPreview patientId={effectiveSelectedId} />
                     ) : (
                         <div className="h-full flex items-center justify-center text-muted-foreground">
                             <div className="text-center">

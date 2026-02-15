@@ -14,7 +14,9 @@ export class MessageController {
      */
     async getMessages(request: FastifyRequest, reply: FastifyReply) {
         const { patientId } = patientIdParamSchema.parse(request.params);
-        const messages = await messageService.getMessages(patientId);
+        const query = request.query as { limit?: string };
+        const limit = query.limit ? parseInt(query.limit, 10) : undefined;
+        const messages = await messageService.getMessages(patientId, limit);
         return reply.send(successResponse(messages));
     }
 
