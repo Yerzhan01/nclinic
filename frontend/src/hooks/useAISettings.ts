@@ -108,7 +108,7 @@ export function useAIDashboard() {
     return useQuery({
         queryKey: ['ai-dashboard'],
         queryFn: async () => {
-            const { data } = await api.get<{ data: AIDashboardStats }>('/integrations/ai-testing/dashboard');
+            const { data } = await api.get<{ data: AIDashboardStats }>('/ai/dashboard');
             return data.data;
         },
         refetchInterval: 60000, // Refresh every minute
@@ -130,7 +130,7 @@ export function useAIQualityLogs(limit = 20) {
     return useQuery({
         queryKey: ['ai-quality-logs', limit],
         queryFn: async () => {
-            const { data } = await api.get<{ data: AIQualityLog[] }>(`/integrations/ai-testing/quality/logs?limit=${limit}`);
+            const { data } = await api.get<{ data: AIQualityLog[] }>(`/ai/quality/logs?limit=${limit}`);
             return data.data;
         },
     });
