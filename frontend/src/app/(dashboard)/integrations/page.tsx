@@ -167,7 +167,7 @@ export default function IntegrationsPage() {
 
     const aiForm = useForm<AIForm>({
         resolver: zodResolver(aiSchema),
-        defaultValues: { apiKey: '', model: 'gpt-4o-mini' },
+        defaultValues: { apiKey: '', model: aiStatus?.model || 'gpt-4o-mini' },
     });
 
     const handleConnectWa = async (data: WhatsAppForm) => {

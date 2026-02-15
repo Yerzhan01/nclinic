@@ -17,6 +17,7 @@ const updateSettingsSchema = z.object({
         maxSentences: z.number().min(1).max(12).optional(),
         maxOutputTokens: z.number().min(50).max(4096).optional(),
         handoffTriggers: z.array(z.string()).optional(),
+        handoffResponse: z.string().optional(),
         forbiddenPhrases: z.array(z.string()).optional(),
         commands: z.object({
             prefix: z.string().optional(),
@@ -49,8 +50,8 @@ export class AIController {
     async connect(request: FastifyRequest, reply: FastifyReply) {
         const body = connectAISchema.parse(request.body);
 
-        await aiService.saveConfig({
-            provider: 'openai',
+        // Merge with existing config to avoid losing agent/temperature/model settings
+        await aiService.updateSettings({
             apiKey: body.apiKey,
             model: body.model,
             temperature: body.temperature,
