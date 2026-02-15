@@ -315,7 +315,7 @@ export default function PatientsPage() {
                 </Card>
 
                 {/* Patient Preview (Right) */}
-                <Card className="flex-1 min-w-0">
+                <Card className="flex-1 min-w-0 overflow-hidden">
                     {effectiveSelectedId ? (
                         <PatientPreview patientId={effectiveSelectedId} />
                     ) : (
