@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
 import { Search, MessageSquare, ClipboardList, Calendar, Send, User, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import type { ChatMode, Patient } from '@/types/api';
@@ -182,56 +183,54 @@ function PatientPreview({ patientId }: { patientId: string }) {
                         <p className="text-sm opacity-60">Нет сообщений</p>
                     </div>
                 ) : (
-                    <div className="flex flex-col gap-4 pb-4">
-                        {recentMessages.map((msg) => (
-                            <div
-                                key={msg.id}
-                                className={cn(
-                                    "flex flex-col w-fit max-w-[70%]",
-                                    msg.sender === 'PATIENT' ? "self-start items-start" : "self-end items-end"
-                                )}
-                            >
-                                <div className="flex items-center gap-2 mb-1 px-1">
-                                    <span className="text-[10px] font-medium text-slate-400">
-                                        {msg.sender === 'PATIENT' ? patient.fullName : (msg.sender === 'AI' ? 'AI Bot' : 'Admin')}
-                                    </span>
-                                    <span className="text-[10px] text-slate-300">
-                                        {new Date(msg.createdAt).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                </div>
+                    <div className="space-y-4 pb-4">
+                        {recentMessages.map((msg) => {
+                            const isOutbound = msg.direction === 'OUTBOUND';
+                            const msgDate = new Date(msg.createdAt);
+
+                            return (
                                 <div
-                                    className={cn(
-                                        "p-3 rounded-2xl text-sm shadow-sm leading-relaxed break-words whitespace-pre-wrap",
-                                        msg.sender === 'PATIENT'
-                                            ? "bg-white border border-slate-100 text-slate-700 rounded-tl-none"
-                                            : "bg-blue-600 text-white rounded-tr-none shadow-blue-200"
-                                    )}
+                                    key={msg.id}
+                                    className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}
                                 >
-                                    <p className="break-words">{msg.content || <span className="italic opacity-80">[Медиа файл]</span>}</p>
+                                    <div
+                                        className={`max-w-[80%] rounded-lg px-4 py-2 ${isOutbound
+                                            ? 'bg-primary text-primary-foreground'
+                                            : 'bg-muted'
+                                            }`}
+                                    >
+                                        <p className="text-sm whitespace-pre-wrap break-words">{msg.content || <span className="italic opacity-80">[Медиа файл]</span>}</p>
+                                        <p className="text-xs opacity-70 mt-1 flex items-center gap-1 justify-end">
+                                            {msg.sender === 'SYSTEM' ? 'System' : (msg.sender === 'AI' ? 'AI' : '')} {msgDate.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </ScrollArea>
 
             {/* Quick Reply */}
-            <div className="p-4 border-t bg-white/50 backdrop-blur-sm">
-                <div className="flex gap-2 items-center bg-white border rounded-full px-2 py-1 shadow-sm focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-300 transition-all">
-                    <Input
+            <div className="p-4 border-t">
+                <div className="flex gap-2">
+                    <Textarea
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
                         placeholder="Написать сообщение..."
-                        className="border-0 shadow-none focus-visible:ring-0 bg-transparent h-10"
-                        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                        rows={2}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSendMessage();
+                            }
+                        }}
                     />
                     <Button
                         onClick={handleSendMessage}
                         disabled={sendMessage.isPending || !newMessage.trim()}
-                        size="icon"
-                        className="h-8 w-8 rounded-full bg-blue-600 hover:bg-blue-700 shrink-0 disabled:opacity-40"
                     >
-                        {sendMessage.isPending ? <Loader2 className="h-4 w-4 text-white animate-spin" /> : <Send className="h-4 w-4 text-white" />}
+                        {sendMessage.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                     </Button>
                 </div>
             </div>
