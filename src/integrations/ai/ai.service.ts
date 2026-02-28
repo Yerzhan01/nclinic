@@ -278,6 +278,13 @@ export class AIService {
                 requestBody.max_completion_tokens = agentSettings.maxOutputTokens;
             }
 
+            logger.info({
+                model: config.model,
+                messageCount: (requestBody.messages as unknown[]).length,
+                promptChars: JSON.stringify(requestBody.messages).length,
+                maxCompletionTokens: requestBody.max_completion_tokens,
+            }, 'Sending OpenAI request');
+
             const response = await this.fetchWithRetry('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
                 headers: {
@@ -299,8 +306,14 @@ export class AIService {
 
             const content = data.choices?.[0]?.message?.content;
 
-            if (!content) {
-                logger.error('OpenAI returned empty content');
+            logger.info({
+                contentLength: content?.length ?? 0,
+                contentPreview: content?.substring(0, 200),
+                finishReason: (data.choices?.[0] as Record<string, unknown>)?.finish_reason,
+            }, 'OpenAI response received');
+
+            if (!content || !content.trim()) {
+                logger.error({ contentRaw: JSON.stringify(content) }, 'OpenAI returned empty/whitespace content');
                 return null;
             }
 
