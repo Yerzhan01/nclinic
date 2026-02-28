@@ -243,7 +243,20 @@ ${ragContextStr}
 
 === ЗАДАЧА ===
 Ответь на последнее сообщение пациента.
-Если требуется помощь специалиста или запрос вне твоей компетенции, в конце ответа добавь: [HANDOFF_REQUIRED]`;
+Если требуется помощь специалиста или запрос вне твоей компетенции, в конце ответа добавь: [HANDOFF_REQUIRED]
+
+=== ФОРМАТ ОТВЕТА ===
+Ты ОБЯЗАН ответить СТРОГО в формате json. Структура:
+{
+  "sentiment": "positive" | "neutral" | "negative",
+  "intent": "question" | "complaint" | "checkin" | "urgent" | "chitchat" | "gratitude" | "unknown",
+  "riskLevel": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
+  "summary": "Краткое описание",
+  "shouldReply": true,
+  "suggestedReply": "Твой тёплый ответ пациенту",
+  "handoffRequired": false,
+  "extractedCheckIns": []
+}`;
 
         logger.debug({
             patientId,
