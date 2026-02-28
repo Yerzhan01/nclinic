@@ -12,7 +12,7 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@patient-assistant-postgres:5432/patient_assistant
       - REDIS_URL=redis://patient-assistant-redis:6379
       - JWT_SECRET=${JWT_SECRET:-production-secret-change-me}
-      - TELEGRAM_ADMIN_BOT_TOKEN=8047854416:AAF9Od0MT411h5amzVbMOg6rGyXfoCLd3SI
+
     depends_on:
       postgres:
         condition: service_healthy
