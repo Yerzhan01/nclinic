@@ -7,6 +7,8 @@ import type { AIConfig, AIAnalysisResult, AIConnectionStatus, ExtractedCheckIn, 
 import { DEFAULT_AGENT_SETTINGS } from './ai.types.js';
 import { systemLogService } from '@/modules/system/system-log.service.js';
 import { aiPromptBuilder } from './ai.prompt.builder.js';
+import { buildPatientContext as _buildPatientContext } from '@/common/utils/buildPatientContext.js';
+import type { PatientProfile } from '@/modules/patients/patient-profile.schema.js';
 
 // Max context length to prevent token overflow
 const _MAX_CONTEXT_LENGTH = 1200;
@@ -766,23 +768,181 @@ export class AIService {
   "response": "Персонализированный ответ пациенту"
 }`;
 
-        // Fetch recent AI responses to avoid repetition
-        let historyContext = '';
+        // ============================================
+        // BUILD RICH PATIENT CONTEXT FOR SMART RESPONSES
+        // ============================================
+        let patientIntelligence = '';
         try {
-            const recentMessages = await prisma.message.findMany({
-                where: { patientId, sender: { in: ['AI', 'PATIENT'] } },
-                orderBy: { createdAt: 'desc' },
-                take: 10,
-                select: { sender: true, content: true }
+            // 1. Patient profile + active program
+            const patient = await prisma.patient.findUnique({
+                where: { id: patientId },
+                select: {
+                    fullName: true,
+                    profile: true,
+                    conversationSummary: true,
+                    programs: {
+                        where: { status: 'ACTIVE' },
+                        include: { template: true },
+                        take: 1,
+                    },
+                },
             });
-            if (recentMessages.length > 0) {
-                const history = recentMessages.reverse().map(m =>
-                    `${m.sender === 'AI' ? 'Ты' : 'Пациент'}: ${m.content?.slice(0, 100) || '[медиа]'}`
-                ).join('\n');
-                historyContext = `\n\n=== ИСТОРИЯ ДИАЛОГА (последние сообщения) ===\n${history}\n\nВАЖНО: НЕ повторяй свои предыдущие ответы! Используй другие формулировки и советы.`;
+
+            if (patient) {
+                const parts: string[] = [];
+
+                // Patient name
+                parts.push(`\n=== ПАЦИЕНТ ===`);
+                parts.push(`Имя: ${patient.fullName}`);
+
+                // Profile (weight, goal, allergies, etc)
+                const profile = patient.profile as PatientProfile | null;
+                if (profile) {
+                    if (profile.weightKg) { parts.push(`Текущий вес: ${profile.weightKg} кг`); }
+                    if (profile.targetWeightKg) { parts.push(`Цель: ${profile.targetWeightKg} кг`); }
+                    if (profile.heightCm) { parts.push(`Рост: ${profile.heightCm} см`); }
+                    if (profile.nutritionPlan?.kcalTarget) {
+                        parts.push(`Норма калорий: ${profile.nutritionPlan.kcalTarget} ккал/день`);
+                    }
+                    if (profile.allergies?.length) {
+                        parts.push(`⚠️ Аллергии: ${profile.allergies.join(', ')}`);
+                    }
+                    if (profile.nutritionPlan?.restrictions?.length) {
+                        parts.push(`Ограничения: ${profile.nutritionPlan.restrictions.join(', ')}`);
+                    }
+                }
+
+                // Program day
+                if (patient.programs[0]) {
+                    const prog = patient.programs[0];
+                    const dayNum = Math.ceil((Date.now() - prog.startDate.getTime()) / (1000 * 60 * 60 * 24));
+                    parts.push(`Программа: ${prog.template.name}, день ${dayNum} из ${prog.template.durationDays}`);
+                }
+
+                // 2. Weight trend (last 7 weight check-ins)
+                const weightCheckIns = await prisma.checkIn.findMany({
+                    where: { patientId, type: 'WEIGHT', valueNumber: { not: null } },
+                    orderBy: { createdAt: 'desc' },
+                    take: 7,
+                    select: { valueNumber: true, createdAt: true },
+                });
+
+                if (weightCheckIns.length >= 2) {
+                    const trend = weightCheckIns.reverse();
+                    const weights = trend.map(c => c.valueNumber!);
+                    const diff = weights[weights.length - 1] - weights[0];
+                    const diffStr = diff > 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1);
+                    parts.push(`\n=== ДИНАМИКА ВЕСА ===`);
+                    parts.push(`${weights.map(w => w.toFixed(1)).join(' → ')} кг (${diffStr} кг)`);
+                }
+
+                // 3. Today's meals (from check-ins)
+                const todayStart = new Date();
+                todayStart.setHours(0, 0, 0, 0);
+
+                const todayFoodCheckIns = await prisma.checkIn.findMany({
+                    where: {
+                        patientId,
+                        type: 'DIET_ADHERENCE',
+                        createdAt: { gte: todayStart },
+                    },
+                    orderBy: { createdAt: 'asc' },
+                    select: { valueText: true, createdAt: true },
+                });
+
+                // Also check today's AI food responses from messages
+                const todayFoodMessages = await prisma.message.findMany({
+                    where: {
+                        patientId,
+                        sender: 'AI',
+                        createdAt: { gte: todayStart },
+                        content: { contains: 'ккал' },
+                    },
+                    orderBy: { createdAt: 'asc' },
+                    take: 5,
+                    select: { content: true, createdAt: true },
+                });
+
+                if (todayFoodCheckIns.length > 0 || todayFoodMessages.length > 0) {
+                    parts.push(`\n=== ЕДА СЕГОДНЯ ===`);
+                    for (const ci of todayFoodCheckIns) {
+                        const time = ci.createdAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Almaty' });
+                        parts.push(`${time}: ${ci.valueText || 'фото еды'}`);
+                    }
+                    if (todayFoodMessages.length > 0) {
+                        parts.push(`(Уже ${todayFoodMessages.length} приём(ов) пищи проанализировано сегодня)`);
+                    }
+                }
+
+                // Time of day → meal type
+                const almatyHour = new Date().getUTCHours() + 5; // UTC+5
+                let mealType = 'перекус';
+                if (almatyHour >= 6 && almatyHour < 11) { mealType = 'завтрак'; }
+                else if (almatyHour >= 11 && almatyHour < 15) { mealType = 'обед'; }
+                else if (almatyHour >= 15 && almatyHour < 18) { mealType = 'полдник'; }
+                else if (almatyHour >= 18 && almatyHour < 22) { mealType = 'ужин'; }
+                parts.push(`Вероятный приём пищи: ${mealType}`);
+
+                // 4. Emotional intelligence — recent sentiment from messages
+                const recentPatientMsgs = await prisma.message.findMany({
+                    where: { patientId, sender: 'PATIENT', content: { not: null } },
+                    orderBy: { createdAt: 'desc' },
+                    take: 15,
+                    select: { content: true },
+                });
+
+                if (recentPatientMsgs.length > 3) {
+                    const negativeWords = ['плохо', 'сорвал', 'срыв', 'устал', 'грустно', 'не могу', 'тяжело', 'бросить', 'надоело', 'жалуюсь', 'не получается', 'нет сил'];
+                    const positiveWords = ['хорошо', 'отлично', 'супер', 'рада', 'доволь', 'получилось', 'ура', 'прогресс', 'молодец', 'спасибо', 'класс'];
+
+                    let negCount = 0;
+                    let posCount = 0;
+                    for (const msg of recentPatientMsgs) {
+                        const lower = (msg.content || '').toLowerCase();
+                        if (negativeWords.some(w => lower.includes(w))) { negCount++; }
+                        if (positiveWords.some(w => lower.includes(w))) { posCount++; }
+                    }
+
+                    parts.push(`\n=== ЭМОЦИОНАЛЬНЫЙ ФОН ===`);
+                    if (negCount > posCount && negCount >= 2) {
+                        parts.push(`Пациент проявляет признаки усталости/разочарования. Будь особенно мягким и поддерживающим. НЕ критикуй.`);
+                    } else if (posCount > negCount) {
+                        parts.push(`Пациент в хорошем настроении. Можно быть энергичным и мотивирующим.`);
+                    } else {
+                        parts.push(`Нейтральный тон. Будь дружелюбным и профессиональным.`);
+                    }
+                }
+
+                // 5. Conversation summary (long-term memory)
+                if (patient.conversationSummary) {
+                    parts.push(`\n=== ДОЛГОВРЕМЕННАЯ ПАМЯТЬ ===`);
+                    parts.push(patient.conversationSummary);
+                }
+
+                // 6. Chat history (anti-repetition)
+                const recentMessages = await prisma.message.findMany({
+                    where: { patientId, sender: { in: ['AI', 'PATIENT'] } },
+                    orderBy: { createdAt: 'desc' },
+                    take: 8,
+                    select: { sender: true, content: true },
+                });
+                if (recentMessages.length > 0) {
+                    const history = recentMessages.reverse().map(m =>
+                        `${m.sender === 'AI' ? 'Ты' : 'Пациент'}: ${m.content?.slice(0, 80) || '[медиа]'}`
+                    ).join('\n');
+                    parts.push(`\n=== ПОСЛЕДНИЕ СООБЩЕНИЯ ===`);
+                    parts.push(history);
+                    parts.push(`\nВАЖНО: НЕ повторяй свои предыдущие ответы! Используй другие формулировки.`);
+                }
+
+                // Обращайся к пациенту по имени
+                const firstName = patient.fullName.split(' ')[0];
+                parts.push(`\nОбращайся к пациенту по имени: ${firstName}`);
+
+                patientIntelligence = parts.join('\n');
             }
-        } catch {
-            // Non-critical, proceed without history
+        } catch (err) {
+            logger.warn({ err }, 'Failed to build patient intelligence for Vision, proceeding without');
         }
 
         try {
@@ -798,7 +958,7 @@ export class AIService {
                         {
                             role: 'user',
                             content: [
-                                { type: 'text', text: visionPrompt + historyContext },
+                                { type: 'text', text: visionPrompt + patientIntelligence },
                                 { type: 'image_url', image_url: { url: imageUrl } }
                             ]
                         }

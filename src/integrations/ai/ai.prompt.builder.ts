@@ -217,6 +217,52 @@ export class AIPromptBuilder {
         // Build final prompt
         const timeContext = buildTimeContext();
 
+        // === WEIGHT TREND ===
+        const weightCheckIns = recentCheckIns
+            .filter(c => c.type === 'WEIGHT' && c.valueNumber !== null)
+            .reverse(); // chronological
+        let weightTrend = '';
+        if (weightCheckIns.length >= 2) {
+            const weights = weightCheckIns.map(c => c.valueNumber!);
+            const diff = weights[weights.length - 1] - weights[0];
+            const diffStr = diff > 0 ? `+${diff.toFixed(1)}` : diff.toFixed(1);
+            weightTrend = `${weights.map(w => w.toFixed(1)).join(' → ')} кг (${diffStr} кг)`;
+        }
+
+        // === TODAY'S MEALS ===
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayMeals = recentCheckIns.filter(c =>
+            c.type === 'DIET_ADHERENCE' && c.createdAt >= todayStart
+        );
+        const todayMealsStr = todayMeals.length > 0
+            ? todayMeals.map(c => {
+                const time = c.createdAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Almaty' });
+                return `- ${time}: ${c.valueText || 'фото еды'}`;
+            }).join('\n')
+            : '';
+
+        // === EMOTIONAL INTELLIGENCE ===
+        const patientMessages = recentMessages.filter(m => m.sender === 'PATIENT' && m.content);
+        let emotionalContext = '';
+        if (patientMessages.length > 3) {
+            const negativeWords = ['плохо', 'сорвал', 'срыв', 'устал', 'грустно', 'не могу', 'тяжело', 'бросить', 'надоело', 'не получается', 'нет сил'];
+            const positiveWords = ['хорошо', 'отлично', 'супер', 'рада', 'доволь', 'получилось', 'ура', 'прогресс', 'молодец', 'спасибо', 'класс'];
+            let negCount = 0, posCount = 0;
+            for (const msg of patientMessages) {
+                const lower = (msg.content || '').toLowerCase();
+                if (negativeWords.some(w => lower.includes(w))) { negCount++; }
+                if (positiveWords.some(w => lower.includes(w))) { posCount++; }
+            }
+            if (negCount > posCount && negCount >= 2) {
+                emotionalContext = 'Пациент проявляет усталость/разочарование. Будь особенно мягким и поддерживающим. НЕ критикуй.';
+            } else if (posCount > negCount) {
+                emotionalContext = 'Пациент в хорошем настроении. Можно быть энергичным и мотивирующим.';
+            }
+        }
+
+        const firstName = patient.fullName.split(' ')[0];
+
         const prompt = `${systemPrompt}
 
 ${styleGuide}
@@ -225,9 +271,12 @@ ${styleGuide}
 ${timeContext}
 
 === ПРОФИЛЬ ПАЦИЕНТА ===
-Имя: ${patient.fullName}
+Имя: ${patient.fullName} (обращайся: ${firstName})
 Программа: ${programInfo}
 ${patientContext ? patientContext : ''}
+${weightTrend ? `\n=== ДИНАМИКА ВЕСА ===\n${weightTrend}` : ''}
+${todayMealsStr ? `\n=== ЕДА СЕГОДНЯ ===\n${todayMealsStr}` : ''}
+${emotionalContext ? `\n=== ЭМОЦИОНАЛЬНЫЙ ФОН ===\n${emotionalContext}` : ''}
 
 === ПОСЛЕДНИЕ ЧЕК-ИНЫ (7 дней) ===
 ${formattedCheckIns}
@@ -243,6 +292,7 @@ ${ragContextStr}
 
 === ЗАДАЧА ===
 Ответь на последнее сообщение пациента.
+ВАЖНО: НЕ повторяй свои предыдущие ответы дословно! Используй разные формулировки.
 Если требуется помощь специалиста или запрос вне твоей компетенции, в конце ответа добавь: [HANDOFF_REQUIRED]
 
 === ФОРМАТ ОТВЕТА ===
