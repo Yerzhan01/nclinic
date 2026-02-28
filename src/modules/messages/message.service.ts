@@ -186,21 +186,37 @@ export class MessageService {
         }
 
         // AI Analysis / Buffering
-        // Pass text AND analysisContext separately
-        if ((text || analysisContext) && patient.chatMode === ChatMode.AI && !patient.aiPaused) {
+        // For image messages with successful Vision analysis: use Vision response directly
+        // For text messages: pass through analyzeMessage() as usual
+        const hasDirectVisionResponse = imageAnalysis &&
+            ['food', 'scale', 'steps'].includes(imageAnalysis.imageType) &&
+            analysisContext;
+
+        if (hasDirectVisionResponse && patient.chatMode === ChatMode.AI && !patient.aiPaused) {
+            // Vision API already produced a detailed, accurate response — send it directly
+            // This avoids double-processing which caused generic/repetitive replies
+            try {
+                const visionReplyText = analysisContext.replace(/^📷\s*/, ''); // Remove camera prefix
+                await this.sendVisionReply(patient.id, patient.phone, visionReplyText, message.id);
+                logger.info({ patientId: patient.id, imageType: imageAnalysis!.imageType }, 'Sent direct Vision API reply');
+            } catch (error) {
+                logger.error({ error, patientId: patient.id }, 'Failed to send direct Vision reply, falling back to AI analysis');
+                // Fallback to regular analysis
+                const fullContent = text ? (text + '\n' + analysisContext) : analysisContext;
+                await redis.rpush(`patient:${patient.id}:buffer`, fullContent);
+                await scheduleAIAnalysis(patient.id, 10);
+            }
+        } else if ((text || analysisContext) && patient.chatMode === ChatMode.AI && !patient.aiPaused) {
             const config = await aiService.getConfig();
             const bufferSeconds = config?.messageBufferSeconds ?? 10;
 
             const fullContent = text ? (text + (analysisContext ? `\n${analysisContext}` : '')) : analysisContext;
 
             if (bufferSeconds > 0) {
-                // Buffer Mode - for now we just push text. 
-                // Context handling in buffer mode is complex, falling back to full text push for buffer
                 await redis.rpush(`patient:${patient.id}:buffer`, fullContent);
                 await scheduleAIAnalysis(patient.id, bufferSeconds);
                 logger.info({ patientId: patient.id, bufferSeconds }, 'Message buffered for AI analysis');
             } else {
-                // Instant Mode - Pass separated context
                 await this.processAIAnalysis(patient.id, patient.phone, text || '[Media]', message.id, analysisContext);
             }
         }
@@ -363,6 +379,46 @@ export class MessageService {
             }
         } catch (error) {
             logger.error({ error, patientId }, 'AI analysis processing error');
+        }
+    }
+
+    /**
+     * Send Vision API analysis directly as reply (for food/scale/steps photos)
+     * Avoids double-processing through analyzeMessage which causes generic repetitive replies
+     */
+    private async sendVisionReply(
+        patientId: string,
+        phone: string,
+        replyText: string,
+        _messageId: string
+    ): Promise<void> {
+        const result = await whatsAppService.sendMessage(phone, replyText);
+
+        if (result.success) {
+            const aiMessage = await prisma.message.create({
+                data: {
+                    patientId,
+                    direction: MessageDirection.OUTBOUND,
+                    sender: MessageSender.AI,
+                    content: replyText,
+                    whatsappMessageId: result.whatsappMessageId,
+                },
+            });
+
+            webSocketService.broadcast('NEW_MESSAGE', {
+                id: aiMessage.id,
+                patientId: aiMessage.patientId,
+                direction: aiMessage.direction,
+                sender: aiMessage.sender,
+                content: aiMessage.content,
+                mediaUrl: aiMessage.mediaUrl,
+                mediaType: (aiMessage as Record<string, unknown>).mediaType,
+                createdAt: aiMessage.createdAt,
+            });
+
+            logger.info({ patientId, messageId: aiMessage.id }, 'Vision reply sent directly');
+        } else {
+            logger.error({ patientId, phone }, 'Failed to send Vision reply via WhatsApp');
         }
     }
 
