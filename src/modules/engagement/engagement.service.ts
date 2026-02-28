@@ -162,30 +162,29 @@ export const engagementService = {
     getStartOfDayInTimezone(timezone: string): Date {
         const tz = timezone || 'Asia/Almaty';
         const now = new Date();
+        // Get current date string in patient's timezone (YYYY-MM-DD)
         const formatter = new Intl.DateTimeFormat('en-CA', {
             timeZone: tz,
             year: 'numeric',
             month: '2-digit',
             day: '2-digit',
         });
-        // Returns YYYY-MM-DD in the patient's local timezone
-        const localDate = formatter.format(now);
-        // Parse as start of day in that timezone
-        // Create a date string that represents midnight in that timezone
-        const midnightLocal = new Date(`${localDate}T00:00:00`);
-        // Adjust to UTC: get the timezone offset
-        const offsetFormatter = new Intl.DateTimeFormat('en-US', {
+        const localDateStr = formatter.format(now);
+        // Create midnight in UTC, then shift back by timezone offset
+        // Using Intl to get exact offset in minutes
+        const utcMidnight = new Date(`${localDateStr}T00:00:00Z`);
+        // Get the offset: difference between UTC time and local time
+        const localFormatter = new Intl.DateTimeFormat('en-US', {
             timeZone: tz,
-            timeZoneName: 'shortOffset',
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: false,
         });
-        const offsetParts = offsetFormatter.formatToParts(now);
-        const offsetStr = offsetParts.find(p => p.type === 'timeZoneName')?.value || '+5';
-        const offsetMatch = offsetStr.match(/([+-]?\d+):?(\d+)?/);
-        const offsetHours = offsetMatch ? parseInt(offsetMatch[1], 10) : 5;
-        const offsetMinutes = offsetMatch && offsetMatch[2] ? parseInt(offsetMatch[2], 10) : 0;
-        const totalOffsetMs = (offsetHours * 60 + offsetMinutes) * 60 * 1000;
-
-        return new Date(midnightLocal.getTime() - totalOffsetMs);
+        const testDate = new Date(`${localDateStr}T12:00:00Z`); // Use noon to avoid DST edge
+        const localParts = localFormatter.formatToParts(testDate);
+        const localHour = parseInt(localParts.find(p => p.type === 'hour')?.value || '12', 10);
+        const offsetHours = localHour - 12; // e.g., Almaty: 17 - 12 = +5
+        return new Date(utcMidnight.getTime() - offsetHours * 60 * 60 * 1000);
     },
 
     /**
