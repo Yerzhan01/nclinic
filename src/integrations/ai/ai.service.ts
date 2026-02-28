@@ -2,13 +2,14 @@ import { prisma } from '@/config/prisma.js';
 import { logger } from '@/common/utils/logger.js';
 import { taskService } from '@/modules/tasks/task.service.js';
 import { TaskType, TaskPriority, TaskSource, CheckInSource } from '@prisma/client';
+import type { CheckInType } from '@prisma/client';
 import type { AIConfig, AIAnalysisResult, AIConnectionStatus, ExtractedCheckIn, ImageAnalysisResult } from './ai.types.js';
 import { DEFAULT_AGENT_SETTINGS } from './ai.types.js';
 import { systemLogService } from '@/modules/system/system-log.service.js';
 import { aiPromptBuilder } from './ai.prompt.builder.js';
 
 // Max context length to prevent token overflow
-const MAX_CONTEXT_LENGTH = 1200;
+const _MAX_CONTEXT_LENGTH = 1200;
 
 export class AIService {
 
@@ -495,7 +496,7 @@ export class AIService {
      * Parse and validate extracted check-ins from AI response
      */
     private parseExtractedCheckIns(value: unknown): ExtractedCheckIn[] | undefined {
-        if (!value || !Array.isArray(value)) return undefined;
+        if (!value || !Array.isArray(value)) { return undefined; }
 
         const validTypes = ['WEIGHT', 'STEPS', 'MOOD', 'DIET_ADHERENCE', 'SLEEP', 'WATER', 'FOOD_LOG', 'EXERCISE', 'FREE_TEXT'];
         const validConfidence = ['high', 'medium', 'low'];
@@ -503,8 +504,8 @@ export class AIService {
         const checkIns: ExtractedCheckIn[] = [];
 
         for (const item of value) {
-            if (!item || typeof item !== 'object') continue;
-            if (!item.type || !validTypes.includes(item.type)) continue;
+            if (!item || typeof item !== 'object') { continue; }
+            if (!item.type || !validTypes.includes(item.type)) { continue; }
 
             checkIns.push({
                 type: item.type,
@@ -522,7 +523,7 @@ export class AIService {
      * Save extracted check-ins to database
      */
     async saveExtractedCheckIns(patientId: string, checkIns: ExtractedCheckIn[]): Promise<void> {
-        if (!checkIns || checkIns.length === 0) return;
+        if (!checkIns || checkIns.length === 0) { return; }
 
         // Map AI types to Prisma CheckInType (only valid ones)
         const prismaTypeMap: Record<string, string> = {
@@ -539,13 +540,13 @@ export class AIService {
 
         for (const checkIn of checkIns) {
             const prismaType = prismaTypeMap[checkIn.type];
-            if (!prismaType) continue;
+            if (!prismaType) { continue; }
 
             try {
                 await prisma.checkIn.create({
                     data: {
                         patientId,
-                        type: prismaType as any,
+                        type: prismaType as CheckInType,
                         valueNumber: checkIn.valueNumber,
                         valueText: checkIn.valueText || (checkIn.type !== prismaType ? `[${checkIn.type}] ${checkIn.valueText || ''}` : undefined),
                         valueBool: checkIn.valueBool,
@@ -575,7 +576,7 @@ export class AIService {
     }
 
     private parseEnhancedSentiment(value: unknown): { overall: 'positive' | 'neutral' | 'negative'; emotions: ('anxious' | 'frustrated' | 'hopeful' | 'confused' | 'calm' | 'grateful' | 'discouraged')[]; intensity: 'low' | 'medium' | 'high' } | undefined {
-        if (!value || typeof value !== 'object') return undefined;
+        if (!value || typeof value !== 'object') { return undefined; }
         const obj = value as Record<string, unknown>;
         const validEmotions = ['anxious', 'frustrated', 'hopeful', 'confused', 'calm', 'grateful', 'discouraged'] as const;
         const emotions = Array.isArray(obj.emotions)
@@ -596,7 +597,7 @@ export class AIService {
     }
     async generateCheckInSummary(
         patientId: string,
-        checkIns: any[] // Using any[] to avoid circular dependency issues for now, or import CheckIn type if safe
+        checkIns: { createdAt: Date; type: string; valueText?: string | null; valueNumber?: number | null; valueBool?: boolean | null }[]
     ): Promise<{
         progress: string;
         issues: string[];
@@ -646,7 +647,7 @@ export class AIService {
                 }),
             });
 
-            if (!response.ok) throw new Error('AI request failed');
+            if (!response.ok) { throw new Error('AI request failed'); }
 
             const data = (await response.json()) as { choices: { message: { content: string } }[] };
             const content = data.choices[0].message.content;
@@ -663,7 +664,7 @@ export class AIService {
     }
     async transcribeAudio(audioUrl: string): Promise<string | null> {
         const config = await this.getConfig();
-        if (!config) return null;
+        if (!config) { return null; }
 
         try {
             // Fetch audio file
@@ -684,8 +685,8 @@ export class AIService {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('model', 'whisper-1');
-            formData.append('language', 'kk'); // Kazakh language hint for better recognition
-            formData.append('prompt', 'Сәлеметсіз бе, мен пациентпін. Менің салмағым, дәрігер, тамақ, диета, денсаулық.');
+            // Bilingual prompt hint helps Whisper recognize both Kazakh and Russian medical speech
+            formData.append('prompt', 'Сәлеметсіз бе, менің салмағым, дәрігер, тамақ, диета, денсаулық. Здравствуйте, мой вес, доктор, питание, самочувствие.');
 
             const response = await this.fetchWithRetry('https://api.openai.com/v1/audio/transcriptions', {
                 method: 'POST',
