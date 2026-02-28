@@ -274,9 +274,9 @@ export class AIService {
             };
 
             // Use max_completion_tokens (OpenAI deprecated max_tokens for newer models)
-            if (agentSettings.maxOutputTokens) {
-                requestBody.max_completion_tokens = agentSettings.maxOutputTokens;
-            }
+            // Minimum 1500 to avoid truncation with enriched JSON response format
+            const outputTokens = Math.max(agentSettings.maxOutputTokens ?? 1500, 1500);
+            requestBody.max_completion_tokens = outputTokens;
 
             logger.info({
                 model: config.model,
