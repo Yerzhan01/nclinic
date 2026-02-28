@@ -27,7 +27,7 @@ export async function initializeScheduler() {
         {},
         {
             repeat: {
-                pattern: '0 0 * * *', // Daily at 00:00 UTC (05:00 Almaty)
+                pattern: '0 19 * * *', // Daily at 19:00 UTC (00:00 Almaty midnight)
             },
             jobId: 'daily-program-update-job'
         }

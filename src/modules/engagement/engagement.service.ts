@@ -135,6 +135,60 @@ export const engagementService = {
     },
 
     /**
+     * Get current hour in patient's timezone
+     */
+    getLocalHour(timezone: string): number {
+        const tz = timezone || 'Asia/Almaty';
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: tz,
+            hour: 'numeric',
+            hour12: false,
+        });
+        const parts = formatter.formatToParts(new Date());
+        return parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+    },
+
+    /**
+     * Check if current time is within quiet hours (22:00 - 08:00)
+     */
+    isQuietHours(timezone: string): boolean {
+        const hour = this.getLocalHour(timezone);
+        return hour >= 22 || hour < 8;
+    },
+
+    /**
+     * Get start of today in a given timezone (returns UTC Date)
+     */
+    getStartOfDayInTimezone(timezone: string): Date {
+        const tz = timezone || 'Asia/Almaty';
+        const now = new Date();
+        const formatter = new Intl.DateTimeFormat('en-CA', {
+            timeZone: tz,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        });
+        // Returns YYYY-MM-DD in the patient's local timezone
+        const localDate = formatter.format(now);
+        // Parse as start of day in that timezone
+        // Create a date string that represents midnight in that timezone
+        const midnightLocal = new Date(`${localDate}T00:00:00`);
+        // Adjust to UTC: get the timezone offset
+        const offsetFormatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: tz,
+            timeZoneName: 'shortOffset',
+        });
+        const offsetParts = offsetFormatter.formatToParts(now);
+        const offsetStr = offsetParts.find(p => p.type === 'timeZoneName')?.value || '+5';
+        const offsetMatch = offsetStr.match(/([+-]?\d+):?(\d+)?/);
+        const offsetHours = offsetMatch ? parseInt(offsetMatch[1], 10) : 5;
+        const offsetMinutes = offsetMatch && offsetMatch[2] ? parseInt(offsetMatch[2], 10) : 0;
+        const totalOffsetMs = (offsetHours * 60 + offsetMinutes) * 60 * 1000;
+
+        return new Date(midnightLocal.getTime() - totalOffsetMs);
+    },
+
+    /**
      * Check active patients for inactivity and nudge them
      */
     async processReEngagement(): Promise<number> {
@@ -152,6 +206,7 @@ export const engagementService = {
                 id: true,
                 fullName: true,
                 phone: true,
+                timezone: true,
                 messages: {
                     orderBy: { createdAt: 'desc' },
                     take: 1
@@ -166,29 +221,34 @@ export const engagementService = {
         let nudgesSent = 0;
 
         for (const patient of activePatients) {
+            const patientTz = patient.timezone || 'Asia/Almaty';
+
+            // Quiet hours check: don't disturb between 22:00 - 08:00 local time
+            if (this.isQuietHours(patientTz)) {
+                continue;
+            }
+
             const lastMsg = patient.messages[0];
 
             // If patient has no messages OR last message is older than threshold
             const isSilent = !lastMsg || lastMsg.createdAt < threshold;
 
             if (isSilent) {
-                // Check if we already nudged them TODAY to avoid spam
-                const startOfDay = new Date();
-                startOfDay.setHours(0, 0, 0, 0);
+                // Check if we already nudged them TODAY (in patient's timezone) to avoid spam
+                const startOfDay = this.getStartOfDayInTimezone(patientTz);
 
                 const existingNudge = await prisma.message.findFirst({
                     where: {
                         patientId: patient.id,
                         sender: 'SYSTEM',
                         createdAt: { gte: startOfDay },
-                        // Ideally we'd tag these, but for now any system message counts as potential interaction/reminder
                     }
                 });
 
                 if (!existingNudge) {
                     try {
                         const nudge = this.getRandomNudge(patient.fullName);
-                        logger.info({ patientId: patient.id, lastMsgDate: lastMsg?.createdAt }, 'Sending re-engagement nudge');
+                        logger.info({ patientId: patient.id, localHour: this.getLocalHour(patientTz), lastMsgDate: lastMsg?.createdAt }, 'Sending re-engagement nudge');
 
                         await messageService.sendSystemMessage(patient.id, nudge);
                         nudgesSent++;
