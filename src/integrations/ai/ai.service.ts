@@ -684,6 +684,8 @@ export class AIService {
             const formData = new FormData();
             formData.append('file', file);
             formData.append('model', 'whisper-1');
+            formData.append('language', 'kk'); // Kazakh language hint for better recognition
+            formData.append('prompt', 'Сәлеметсіз бе, мен пациентпін. Менің салмағым, дәрігер, тамақ, диета, денсаулық.');
 
             const response = await this.fetchWithRetry('https://api.openai.com/v1/audio/transcriptions', {
                 method: 'POST',
