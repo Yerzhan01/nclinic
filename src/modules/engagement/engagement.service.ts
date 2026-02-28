@@ -112,8 +112,8 @@ export const engagementService = {
         score = Math.max(0, Math.min(100, score));
 
         let status: EngagementScore['status'] = 'OK';
-        if (score < 40) status = 'HIGH_RISK';
-        else if (score < 70) status = 'AT_RISK';
+        if (score < 40) { status = 'HIGH_RISK'; }
+        else if (score < 70) { status = 'AT_RISK'; }
 
         return { score, status, factors };
     },

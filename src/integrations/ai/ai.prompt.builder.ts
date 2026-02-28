@@ -207,9 +207,9 @@ export class AIPromptBuilder {
             ? recentCheckIns.map(c => {
                 const date = c.createdAt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
                 let val = '';
-                if (c.valueNumber !== null) val = String(c.valueNumber);
-                if (c.valueText) val = c.valueText;
-                if (c.valueBool !== null) val = c.valueBool ? 'Да' : 'Нет';
+                if (c.valueNumber !== null) { val = String(c.valueNumber); }
+                if (c.valueText) { val = c.valueText; }
+                if (c.valueBool !== null) { val = c.valueBool ? 'Да' : 'Нет'; }
                 return `- ${date}: [${c.type}] ${val}`;
             }).join('\n')
             : 'Нет данных за неделю.';
