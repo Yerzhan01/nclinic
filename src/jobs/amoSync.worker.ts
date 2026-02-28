@@ -47,8 +47,8 @@ const processor = async (job: Job<AmoSyncJobData>) => {
             throw new Error('Failed to create lead in amoCRM');
         }
     } catch (error) {
-        logger.error({ error, jobId: job.id, patientId }, 'Error processing amoCRM sync job');
-        throw error; // Rethrow to trigger BullMQ retry
+        logger.error({ err: error, message: (error as Error).message, stack: (error as Error).stack, jobId: job.id, patientId }, 'Error processing amoCRM sync job');
+        throw error;
     }
 };
 
