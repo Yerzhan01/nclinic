@@ -4,6 +4,7 @@ import { logger } from '@/common/utils/logger.js';
 import { AppError } from '@/common/errors/AppError.js';
 import { whatsAppService } from '@/integrations/whatsapp/whatsapp.service.js';
 import { aiService } from '@/integrations/ai/ai.service.js';
+import type { AIAnalysisResult } from '@/integrations/ai/ai.types.js';
 import { webSocketService } from '@/common/services/websocket.service.js';
 import type { SaveInboundMessageInput, MessageDto } from './message.types.js';
 import { redis } from '@/config/redis.js';
@@ -19,7 +20,7 @@ export class MessageService {
      * Save inbound message from WhatsApp, analyze with AI, and auto-reply if appropriate
      */
     async saveInboundMessage(input: SaveInboundMessageInput): Promise<MessageDto | null> {
-        let { phone, text, mediaUrl, whatsappMessageId, timestamp } = input;
+        let { phone, text, mediaUrl, whatsappMessageId, timestamp: _timestamp } = input;
 
         // Idempotency check: Ignore if we already processed this message ID
         if (whatsappMessageId) {
@@ -80,16 +81,19 @@ export class MessageService {
                 sender: MessageSender.PATIENT,
                 content: text || null,
                 mediaUrl: mediaUrl || null,
-                // @ts-ignore
                 mediaType: input.mediaType || null,
             },
         });
 
         // Ensure text is not empty for AI triggers if it's a media message
         if (!text && mediaUrl) {
-            if (input.mediaType === 'image') text = '[Фото от пациента]';
-            else if (input.mediaType === 'audio') text = '[Аудио сообщение]';
-            else text = '[Медиа файл]';
+            if (input.mediaType === 'image') {
+                text = '[Фото от пациента]';
+            } else if (input.mediaType === 'audio') {
+                text = '[Аудио сообщение]';
+            } else {
+                text = '[Медиа файл]';
+            }
         }
 
         // Vision API: Analyze image if present
@@ -228,8 +232,7 @@ export class MessageService {
             sender: message.sender,
             content: message.content,
             mediaUrl: message.mediaUrl,
-            // @ts-ignore
-            mediaType: message.mediaType,
+            mediaType: (message as Record<string, unknown>).mediaType as string,
             linkedCheckInId,
             createdAt: message.createdAt,
         };
@@ -242,11 +245,7 @@ export class MessageService {
      * Process AI analysis result (Send reply, create alert, etc.)
      * Public to be used by AI Worker
      */
-    /**
-     * Process AI analysis result (Send reply, create alert, etc.)
-     * Public to be used by AI Worker
-     */
-    async processAnalysisResult(patientId: string, analysis: any, messageId?: string): Promise<void> {
+    async processAnalysisResult(patientId: string, analysis: AIAnalysisResult, messageId?: string): Promise<void> {
         // Import alertService dynamically to avoid circular dependency
         const { alertService } = await import('@/modules/alerts/alert.service.js');
         const { AlertType, AlertLevel } = await import('@prisma/client');
@@ -369,8 +368,7 @@ export class MessageService {
                         sender: aiMessage.sender,
                         content: aiMessage.content,
                         mediaUrl: aiMessage.mediaUrl,
-                        // @ts-ignore - property exists after migration
-                        mediaType: aiMessage.mediaType,
+                        mediaType: (aiMessage as Record<string, unknown>).mediaType as string,
                         createdAt: aiMessage.createdAt
                     });
 
@@ -487,8 +485,7 @@ export class MessageService {
             sender: message.sender,
             content: message.content,
             mediaUrl: message.mediaUrl,
-            // @ts-ignore - property exists after migration
-            mediaType: message.mediaType,
+            mediaType: (message as Record<string, unknown>).mediaType as string,
             linkedCheckInId: message.linkedCheckInId,
             createdAt: message.createdAt,
         };
@@ -507,7 +504,7 @@ export class MessageService {
         const existing = await prisma.message.findFirst({
             where: { whatsappMessageId }
         });
-        if (existing) return null;
+        if (existing) { return null; }
 
         // Normalize phone
         const normalizedPhone = this.normalizePhone(phone);
@@ -533,7 +530,6 @@ export class MessageService {
                 sender: MessageSender.STAFF, // Assume generic staff for mobile sends
                 content: text || (mediaUrl ? '[Медиа]' : null),
                 mediaUrl: mediaUrl || null,
-                // @ts-ignore
                 mediaType: input.mediaType || null,
                 whatsappMessageId,
                 deliveryStatus: 'SENT', // It's already sent on phone
@@ -566,8 +562,7 @@ export class MessageService {
             sender: message.sender,
             content: message.content,
             mediaUrl: message.mediaUrl,
-            // @ts-ignore
-            mediaType: message.mediaType,
+            mediaType: (message as Record<string, unknown>).mediaType as string,
             linkedCheckInId: message.linkedCheckInId,
             createdAt: message.createdAt,
         };
@@ -599,8 +594,7 @@ export class MessageService {
             sender: m.sender,
             content: m.content,
             mediaUrl: m.mediaUrl,
-            // @ts-ignore - property exists after migration
-            mediaType: m.mediaType,
+            mediaType: (m as Record<string, unknown>).mediaType as string,
             linkedCheckInId: m.linkedCheckInId,
             createdAt: m.createdAt,
         }));
@@ -669,8 +663,7 @@ export class MessageService {
             sender: message.sender,
             content: message.content,
             mediaUrl: message.mediaUrl,
-            // @ts-ignore
-            mediaType: message.mediaType,
+            mediaType: (message as Record<string, unknown>).mediaType as string,
             linkedCheckInId: message.linkedCheckInId,
             createdAt: message.createdAt,
         };

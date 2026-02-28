@@ -766,6 +766,25 @@ export class AIService {
   "response": "Персонализированный ответ пациенту"
 }`;
 
+        // Fetch recent AI responses to avoid repetition
+        let historyContext = '';
+        try {
+            const recentMessages = await prisma.message.findMany({
+                where: { patientId, sender: { in: ['AI', 'PATIENT'] } },
+                orderBy: { createdAt: 'desc' },
+                take: 10,
+                select: { sender: true, content: true }
+            });
+            if (recentMessages.length > 0) {
+                const history = recentMessages.reverse().map(m =>
+                    `${m.sender === 'AI' ? 'Ты' : 'Пациент'}: ${m.content?.slice(0, 100) || '[медиа]'}`
+                ).join('\n');
+                historyContext = `\n\n=== ИСТОРИЯ ДИАЛОГА (последние сообщения) ===\n${history}\n\nВАЖНО: НЕ повторяй свои предыдущие ответы! Используй другие формулировки и советы.`;
+            }
+        } catch {
+            // Non-critical, proceed without history
+        }
+
         try {
             const response = await this.fetchWithRetry('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
@@ -779,7 +798,7 @@ export class AIService {
                         {
                             role: 'user',
                             content: [
-                                { type: 'text', text: visionPrompt },
+                                { type: 'text', text: visionPrompt + historyContext },
                                 { type: 'image_url', image_url: { url: imageUrl } }
                             ]
                         }
