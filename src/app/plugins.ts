@@ -23,9 +23,13 @@ declare module '@fastify/jwt' {
 }
 
 export async function registerPlugins(app: FastifyInstance): Promise<void> {
-    // CORS
+    // CORS — restricted to known frontends
     await app.register(fastifyCors, {
-        origin: true,
+        origin: [
+            'https://app.link-it.tech',
+            'http://localhost:3001',
+            'http://localhost:3000',
+        ],
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     });

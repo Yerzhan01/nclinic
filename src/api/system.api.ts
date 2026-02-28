@@ -1,12 +1,14 @@
 
-import { FastifyInstance } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import { prisma } from '@/config/prisma.js';
-import { z } from 'zod';
-import { engagementService } from '@/modules/engagement/engagement.service.js';
+import { authPreHandler } from '@/modules/auth/auth.router.js';
 
 export async function systemApi(app: FastifyInstance) {
+    // Auth required for all system API routes
+    app.addHook('preHandler', authPreHandler);
+
     // GET /api/system/daily-summary
-    app.get('/daily-summary', async (req, reply) => {
+    app.get('/daily-summary', async (_req, _reply) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -89,11 +91,8 @@ export async function systemApi(app: FastifyInstance) {
                     : 0
             },
             tasks: {
-                // @ts-ignore - Prisma aggregate typing can be tricky
                 high: openTasks.find(t => t.priority === 'HIGH')?._count || 0,
-                // @ts-ignore
                 medium: openTasks.find(t => t.priority === 'MEDIUM')?._count || 0,
-                // @ts-ignore
                 low: openTasks.find(t => t.priority === 'LOW')?._count || 0
             }
         };

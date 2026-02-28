@@ -14,8 +14,15 @@ export async function authPreHandler(request: FastifyRequest, _reply: FastifyRep
 export default async function authRouter(app: FastifyInstance) {
     const controller = new AuthController(app);
 
-    // Public routes
-    app.post('/login', async (request, reply) => {
+    // Public routes — with strict rate limit to prevent brute force
+    app.post('/login', {
+        config: {
+            rateLimit: {
+                max: 5,
+                timeWindow: '1 minute',
+            },
+        },
+    }, async (request, reply) => {
         return controller.login(request, reply);
     });
 
