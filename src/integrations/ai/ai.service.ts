@@ -83,7 +83,7 @@ export class AIService {
         const current = await this.getConfig();
         const merged: AIConfig = {
             apiKey: partial.apiKey ?? current?.apiKey ?? process.env.OPENAI_API_KEY ?? '',
-            model: partial.model ?? current?.model ?? 'gpt-4o-mini',
+            model: partial.model ?? current?.model ?? 'o3-mini',
             temperature: partial.temperature ?? current?.temperature,
             messageBufferSeconds: partial.messageBufferSeconds ?? current?.messageBufferSeconds ?? 10,
             agent: {
@@ -966,7 +966,7 @@ export class AIService {
                     Authorization: `Bearer ${config.apiKey} `,
                 },
                 body: JSON.stringify({
-                    model: 'gpt-4o', // Vision model
+                    model: 'gpt-5.2', // Vision model
                     messages: [
                         {
                             role: 'user',
