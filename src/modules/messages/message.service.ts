@@ -280,34 +280,39 @@ export class MessageService {
                 }
             }
 
-            // Determine if handoff is needed
+            // Determine if handoff is needed (only CRITICAL or explicit handoffRequired)
+            // HIGH risk creates alert but AI still replies
             const needsHandoff =
                 analysis.handoffRequired ||
-                analysis.riskLevel === 'HIGH' ||
                 analysis.riskLevel === 'CRITICAL';
 
-            if (needsHandoff) {
-                // Create alert for staff
+            const needsAlert =
+                needsHandoff ||
+                analysis.riskLevel === 'HIGH';
+
+            if (needsAlert) {
+                // Create alert for staff visibility
                 const alertType =
                     analysis.riskLevel === 'HIGH' || analysis.riskLevel === 'CRITICAL'
                         ? AlertType.BAD_CONDITION
                         : AlertType.REQUEST_MANAGER;
 
-                // Need messageId for link? 
                 await alertService.createFromAI({
                     patientId,
                     messageId: messageId,
                     type: alertType,
                     level: AlertLevel[analysis.riskLevel as keyof typeof AlertLevel] || AlertLevel.MEDIUM,
-                    title: `AI Handoff: ${analysis.summary.slice(0, 100)}`,
+                    title: `${needsHandoff ? 'AI Handoff' : 'AI Alert'}: ${analysis.summary.slice(0, 100)}`,
                     description: `Risk: ${analysis.riskLevel}\nSummary: ${analysis.summary}`,
                 });
 
                 logger.info(
-                    { patientId, riskLevel: analysis.riskLevel },
-                    'Handoff alert created - AI will NOT reply'
+                    { patientId, riskLevel: analysis.riskLevel, handoff: needsHandoff },
+                    needsHandoff ? 'Handoff alert created - AI will NOT reply' : 'Alert created - AI will still reply'
                 );
+            }
 
+            if (needsHandoff) {
                 // Auto-reply for handoff if configured
                 const config = await aiService.getConfig();
                 const handoffResponse = config?.agent?.handoffResponse;

@@ -46,6 +46,9 @@ export const reminderWorker = createWorker(
 
                 // 4. Missed Reminder Detection (Creates Tasks + Alerts)
                 await checkMissedReminders();
+
+                // 5. Auto-return patients from HUMAN mode after 30 min timeout
+                await autoReturnToAI();
             }
 
             return { success: true };
@@ -321,5 +324,85 @@ async function checkMissedReminders() {
         }
     } catch (error) {
         logger.error({ error }, 'Error in checkMissedReminders');
+    }
+}
+
+// Auto-return: If patient is in HUMAN mode and staff hasn't responded in 30 min, return to AI
+const AUTO_RETURN_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
+async function autoReturnToAI() {
+    try {
+        const { ChatMode, AlertStatus } = await import('@prisma/client');
+
+        // Find patients stuck in HUMAN mode set by 'system' (not manually by staff)
+        const stuckPatients = await prisma.patient.findMany({
+            where: {
+                chatMode: ChatMode.HUMAN,
+                chatModeSetBy: 'system',
+                chatModeSetAt: {
+                    lt: new Date(Date.now() - AUTO_RETURN_TIMEOUT_MS),
+                },
+            },
+            select: {
+                id: true,
+                fullName: true,
+                chatModeSetAt: true,
+            },
+        });
+
+        if (stuckPatients.length === 0) return;
+
+        for (const patient of stuckPatients) {
+            // Check if staff actually responded (STAFF message after chatModeSetAt)
+            const staffResponse = await prisma.message.findFirst({
+                where: {
+                    patientId: patient.id,
+                    sender: 'STAFF',
+                    direction: 'OUTBOUND',
+                    createdAt: { gt: patient.chatModeSetAt! },
+                },
+            });
+
+            if (staffResponse) {
+                // Staff did respond — leave in HUMAN mode, they're handling it
+                continue;
+            }
+
+            // No staff response after 30 min — auto-resolve alerts and return to AI
+            const openAlerts = await prisma.alert.findMany({
+                where: {
+                    patientId: patient.id,
+                    status: AlertStatus.OPEN,
+                },
+            });
+
+            for (const alert of openAlerts) {
+                await prisma.alert.update({
+                    where: { id: alert.id },
+                    data: {
+                        status: AlertStatus.RESOLVED,
+                        resolvedAt: new Date(),
+                        resolvedBy: 'auto-return',
+                        description: `${alert.description || ''}\n---\nАвтоматически закрыт: куратор не ответил в течение 30 минут`,
+                    },
+                });
+            }
+
+            await prisma.patient.update({
+                where: { id: patient.id },
+                data: {
+                    chatMode: ChatMode.AI,
+                    chatModeSetAt: new Date(),
+                    chatModeSetBy: 'auto-return',
+                },
+            });
+
+            logger.info(
+                { patientId: patient.id, patientName: patient.fullName, alertsResolved: openAlerts.length },
+                'Auto-returned patient to AI mode (staff timeout 30min)'
+            );
+        }
+    } catch (error) {
+        logger.error({ error }, 'Error in autoReturnToAI');
     }
 }
