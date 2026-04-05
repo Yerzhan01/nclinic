@@ -136,9 +136,13 @@ export class MessageService {
                 analysisContext = `📷 ${analysisContext}`;
 
                 logger.info({ imageType: imageAnalysis.imageType, totalCalories: imageAnalysis.totalCalories }, 'Image analysis completed');
+            } else {
+                // FALLBACK: Vision API failed or returned null (e.g. OpenAI overload, bad generation)
+                logger.warn({ patientId: patient.id }, 'Vision API returned null, injecting fallback context');
+                // By giving this specific context to the main AI, we prevent silent drops and bad UX
+                analysisContext = '[СИСТЕМНОЕ УВЕДОМЛЕНИЕ ДЛЯ ИИ]: Произошла техническая ошибка при обработке фото пациента (Vision API временно недоступен). ОЧЕНЬ МЯГКО извинись перед пациентом, скажи, что временно не можешь просмотреть фото, и попроси его описать словами, что на фотографии.';
             }
         }
-
 
 
 
