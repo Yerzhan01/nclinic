@@ -466,13 +466,14 @@ export class MessageService {
             logger.warn({ patientId, phone: patient.phone }, 'WhatsApp send failed, saving message anyway');
         }
 
-        // Save the message
+        // Save the message (include whatsappMessageId to prevent duplicates from outgoing webhook)
         const message = await prisma.message.create({
             data: {
                 patientId,
                 direction: MessageDirection.OUTBOUND,
                 sender: MessageSender.STAFF,
                 content: text,
+                whatsappMessageId: result.whatsappMessageId || undefined,
             },
         });
 
@@ -644,13 +645,14 @@ export class MessageService {
             logger.warn({ patientId, phone: patient.phone }, 'WhatsApp send failed (System Message), saving anyway');
         }
 
-        // Save the message
+        // Save the message (include whatsappMessageId to prevent duplicates from outgoing webhook)
         const message = await prisma.message.create({
             data: {
                 patientId,
                 direction: MessageDirection.OUTBOUND,
                 sender: MessageSender.SYSTEM,
                 content: text,
+                whatsappMessageId: result.whatsappMessageId || undefined,
             },
         });
 
