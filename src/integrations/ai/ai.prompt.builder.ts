@@ -177,8 +177,8 @@ export class AIPromptBuilder {
             programInfo = `${activeProgram.template.name}, день ${dayNumber} из ${activeProgram.template.durationDays}`;
         }
 
-        // Format recent messages
-        const formattedMessages = recentMessages.slice(-10).map(m => {
+        // Format recent messages (expanded window for better memory)
+        const formattedMessages = recentMessages.slice(-30).map(m => {
             const sender = m.sender === 'PATIENT' ? patient.fullName : m.sender;
             const content = m.content || '[медиа]';
             return `[${sender}]: ${content}`;

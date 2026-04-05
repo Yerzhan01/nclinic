@@ -247,9 +247,9 @@ export class AIService {
 
         const { prompt, variantId } = promptResult;
 
-        // Build conversation history for context (last 20 messages)
+        // Build conversation history for context (expanded to last 40 messages for better memory)
         const conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
-        const historyMessages = recentMessages.slice(-20); // Last 20 messages from the NEWEST batch
+        const historyMessages = recentMessages.slice(-40); // Last 40 messages from the NEWEST batch
 
         for (const msg of historyMessages) {
             if (msg.content) {
@@ -932,11 +932,11 @@ export class AIService {
                     parts.push(patient.conversationSummary);
                 }
 
-                // 6. Chat history (anti-repetition)
+                // 6. Chat history (anti-repetition & context for Vision)
                 const recentMessages = await prisma.message.findMany({
                     where: { patientId, sender: { in: ['AI', 'PATIENT'] } },
                     orderBy: { createdAt: 'desc' },
-                    take: 8,
+                    take: 20,
                     select: { sender: true, content: true },
                 });
                 if (recentMessages.length > 0) {
